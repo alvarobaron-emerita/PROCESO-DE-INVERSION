@@ -31,6 +31,8 @@ interface ProjectSelectorProps {
   activeProject: Project | null;
   onProjectChange: (project: Project | null) => void;
   onCreateProject: (project: Project) => void;
+  /** Si se proporciona y la herramienta es Discovery, el botón "Nuevo análisis" llama esto en lugar de abrir el diálogo */
+  onRequestNewAnalysis?: () => void;
   collapsed?: boolean;
   activeTool: ToolType;
 }
@@ -40,6 +42,7 @@ export function ProjectSelector({
   activeProject,
   onProjectChange,
   onCreateProject,
+  onRequestNewAnalysis,
   collapsed = false,
   activeTool,
 }: ProjectSelectorProps) {
@@ -97,6 +100,17 @@ export function ProjectSelector({
     createProjectMutation.mutate({ name: newProjectName.trim() });
   };
 
+  const handleCreateClick = () => {
+    if (activeTool === "discovery" && onRequestNewAnalysis) {
+      onRequestNewAnalysis();
+      return;
+    }
+    setNewProjectDialogOpen(true);
+  };
+
+  const createButtonLabel =
+    activeTool === "discovery" ? "Nuevo análisis" : "Nuevo proyecto";
+
   if (collapsed) {
     return (
       <div className="space-y-1">
@@ -116,9 +130,9 @@ export function ProjectSelector({
           </button>
         ))}
         <button
-          onClick={() => setNewProjectDialogOpen(true)}
+          onClick={handleCreateClick}
           className="flex items-center justify-center w-full p-2 rounded-md text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
-          title="Nuevo proyecto"
+          title={createButtonLabel}
         >
           <Plus className="h-4 w-4" />
         </button>
@@ -166,14 +180,14 @@ export function ProjectSelector({
         })}
 
         <button
-          onClick={() => setNewProjectDialogOpen(true)}
+          onClick={handleCreateClick}
           className={cn(
             "flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-sm transition-colors",
             "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
           )}
         >
           <Plus className="h-4 w-4 shrink-0" />
-          <span>Nuevo proyecto</span>
+          <span>{createButtonLabel}</span>
         </button>
       </div>
 

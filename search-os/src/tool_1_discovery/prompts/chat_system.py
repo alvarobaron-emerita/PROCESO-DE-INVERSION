@@ -3,6 +3,37 @@ Prompts para el Chat Interactivo (Panel Izquierdo - Estado B)
 Sistema de prompts para el copiloto de inversión con function calling
 """
 
+
+def format_document_for_chat(report: dict) -> str:
+    """Formatea el reporte completo para contexto del chat."""
+    if not report:
+        return "No hay reporte disponible."
+    formatted = f"Sector: {report.get('meta', {}).get('sector_name', 'N/A')}\n\n"
+    sections = report.get('sections', {})
+    for section_key, section_data in sections.items():
+        if isinstance(section_data, dict) and 'content' in section_data:
+            title = section_data.get('title', section_key)
+            content = section_data['content']
+            formatted += f"## {title}\n{content}\n\n"
+    return formatted
+
+
+def build_chat_system_prompt(document_text: str) -> str:
+    """Construye el prompt de sistema para el chat con el documento y reglas de búsqueda web."""
+    return CHAT_SYSTEM_PROMPT + """
+
+## DOCUMENTO DE ANÁLISIS (contexto actual):
+
+""" + document_text + """
+
+## INSTRUCCIÓN CRÍTICA - BÚSQUEDA EN INTERNET:
+
+- Responde SIEMPRE basándote en el documento anterior cuando la pregunta pueda responderse con él.
+- SOLO cuando el usuario pida explícitamente buscar algo en internet (ej. "busca en internet", "busca X", "search for X"), debes responder con UNA ÚNICA LÍNEA exactamente así: INTERNET_SEARCH:<query>
+  donde <query> es la búsqueda en una frase corta, sin comillas ni saltos de línea. No escribas nada más en esa respuesta.
+- Para el resto de preguntas: responde de forma profesional y directa usando el documento. Si algo no está en el documento, dilo y sugiere buscar en internet si tiene sentido."""
+
+
 CHAT_SYSTEM_PROMPT = """ERES EL COPILOTO DE INVERSIÓN DE EMERITA.
 
 Tienes acceso de lectura/escritura al documento de análisis que el usuario ve a su derecha.

@@ -2,6 +2,7 @@
 Prompts para el Análisis Inicial (Fase 4 del Pipeline)
 Genera el informe sectorial completo en formato JSON estructurado
 """
+import json
 
 # Tesis de Inversión de Emerita (Hardcoded - sin Manifiesto por ahora)
 EMERITA_THESIS = {
@@ -35,7 +36,122 @@ REPORT_SECTIONS = {
     "10_sourcing_signals": "10. Señales de Búsqueda"
 }
 
-def get_initial_analysis_prompt(sector_name: str, additional_context: str = "", cnae_codes: list = None, web_context: str = "", emerita_thesis: dict = None, custom_prompts: dict = None) -> str:
+# Instrucciones por defecto para cada sección. Si el frontend envía custom_prompts, se usan esas; si no, estas.
+DEFAULT_SECTION_INSTRUCTIONS = {
+    "1_executive_summary": """- Conclusión directa.
+- **VEREDICTO:** [VERDE / ÁMBAR / ROJO]. Justifica el color basándote en márgenes y fragmentación.
+- Si el margen es <15%, el semáforo DEBE ser ROJO o ÁMBAR.""",
+    "2_financials": """- ¿Cómo gana dinero una empresa aquí? Desglose de costes típicos.
+- Márgenes medios observados (Bruto y EBITDA).
+- Ciclo de caja (¿Quién financia a quién?).""",
+    "3_market_size": """- Estimación TAM/SAM en España. Tendencia (CAGR).
+- Segmentos más atractivos para un Search Fund.""",
+    "4_value_chain": """- Diagrama textual (Proveedor → Fabricante → Distribuidor → Cliente).
+- ¿Quién tiene la sartén por el mango (poder de negociación)?""",
+    "5_competition": """- Grado de concentración.
+- Menciona nombres de competidores reales encontrados en el contexto.
+- Busca el "Arquetipo Ideal": Empresa familiar, 20+ años historia, dueños ≥60 años.""",
+    "6_regulations": """- Barreras de entrada reales. Normativas críticas (ej. ISOs, Marcado CE).
+- Deal Killers: {deal_killers}.""",
+    "7_opportunities": """- ¿Dónde está la ineficiencia? (Ej. Procesos en papel, sin equipo comercial).
+- Palancas de valor disponibles: {value_levers}.
+- ¿Cómo puede Emerita multiplicar el EBITDA?""",
+    "8_gtm_targets": """- Perfil ideal de empresa target.
+- Criterios de búsqueda específicos.""",
+    "9_conclusion": """- Síntesis ejecutiva de hallazgos clave.
+- Recomendación final.""",
+    "10_sourcing_signals": """- Qué buscar en Google/LinkedIn para encontrar al target (señales).""",
+}
+
+
+def _section_title(key: str, custom_section_titles: dict = None) -> str:
+    """Título efectivo de una sección: custom o por defecto."""
+    if custom_section_titles and custom_section_titles.get(key):
+        return str(custom_section_titles[key]).strip()
+    return REPORT_SECTIONS.get(key, key)
+
+
+def _build_section_instructions(thesis: dict, custom_prompts: dict = None, custom_section_titles: dict = None) -> str:
+    """Construye el bloque de instrucciones por sección usando custom_prompts o defaults."""
+    custom = custom_prompts or {}
+    parts = []
+    for i, (key, _) in enumerate(REPORT_SECTIONS.items(), start=1):
+        title = _section_title(key, custom_section_titles)
+        raw = custom.get(key)
+        instruction = (str(raw).strip() if raw else "")
+        if not instruction:
+            instruction = DEFAULT_SECTION_INSTRUCTIONS.get(key, "")
+            if key == "6_regulations" and "{deal_killers}" in instruction:
+                deal_killers = thesis.get("DEAL_KILLERS") or [
+                    "Riesgo tecnológico alto",
+                    "Dependencia de un solo cliente",
+                    "Sector en declive",
+                    "Márgenes muy bajos (<10%)",
+                ]
+                instruction = instruction.format(deal_killers=", ".join(deal_killers))
+            elif key == "7_opportunities" and "{value_levers}" in instruction:
+                value_levers = thesis.get("VALUE_LEVERS") or [
+                    "Digitalización",
+                    "Profesionalización comercial",
+                    "Eficiencia operativa",
+                ]
+                instruction = instruction.format(value_levers=", ".join(value_levers))
+        if instruction:
+            # Mostrar título sin número si ya lo lleva (ej. "1. Resumen...") o con número
+            display = title.split(". ", 1)[-1] if ". " in title else title
+            parts.append(f"**{i}. {display}:**\n{instruction}")
+    return "\n\n".join(parts)
+
+
+def _format_sections_json_example(custom_section_titles: dict = None) -> str:
+    """Genera las líneas del ejemplo JSON de secciones con títulos efectivos."""
+    lines = []
+    for key in REPORT_SECTIONS:
+        title = _section_title(key, custom_section_titles)
+        lines.append(f'        "{key}": {{"title": {json.dumps(title)}, "content": "..."}}')
+    return ",\n".join(lines)
+
+
+def _build_section_instructions_from_custom(custom_sections: list, thesis: dict) -> str:
+    """Construye el bloque de instrucciones cuando se usa lista dinámica de secciones."""
+    parts = []
+    for i, sec in enumerate(custom_sections):
+        key = sec.get("key") or f"section_{i + 1}"
+        title = (sec.get("title") or key).strip()
+        instruction = (sec.get("prompt") or "").strip()
+        if not instruction:
+            instruction = DEFAULT_SECTION_INSTRUCTIONS.get(key, "")
+            if key == "6_regulations" and "{deal_killers}" in instruction:
+                deal_killers = thesis.get("DEAL_KILLERS") or [
+                    "Riesgo tecnológico alto",
+                    "Dependencia de un solo cliente",
+                    "Sector en declive",
+                    "Márgenes muy bajos (<10%)",
+                ]
+                instruction = instruction.format(deal_killers=", ".join(deal_killers))
+            elif key == "7_opportunities" and "{value_levers}" in instruction:
+                value_levers = thesis.get("VALUE_LEVERS") or [
+                    "Digitalización",
+                    "Profesionalización comercial",
+                    "Eficiencia operativa",
+                ]
+                instruction = instruction.format(value_levers=", ".join(value_levers))
+        display = title.split(". ", 1)[-1] if ". " in title else title
+        parts.append(f"**{i}. {display}:**\n{instruction}")
+    return "\n\n".join(parts)
+
+
+def _format_sections_json_example_from_custom(custom_sections: list) -> str:
+    """Genera las líneas del ejemplo JSON cuando se usa lista dinámica de secciones."""
+    lines = []
+    for i, sec in enumerate(custom_sections):
+        key = sec.get("key") or f"section_{i + 1}"
+        title = (sec.get("title") or key).strip()
+        lines.append(f'        "{key}": {{"title": {json.dumps(title)}, "content": "..."}}')
+    return ",\n".join(lines)
+
+
+def get_initial_analysis_prompt(sector_name: str, additional_context: str = "", cnae_codes: list = None, web_context: str = "", emerita_thesis: dict = None, custom_prompts: dict = None, custom_section_titles: dict = None, custom_sections: list = None) -> str:
     """
     Genera el prompt maestro para el análisis inicial.
 
@@ -44,6 +160,10 @@ def get_initial_analysis_prompt(sector_name: str, additional_context: str = "", 
         additional_context: Contexto adicional proporcionado por el usuario
         cnae_codes: Lista de códigos CNAE mapeados
         web_context: Contexto web obtenido de Tavily
+        emerita_thesis: Tesis/Manifiesto Emerita (opcional). Si no se pasa, se usa EMERITA_THESIS.
+        custom_prompts: Dict section_key -> texto de instrucción por sección (opcional). Si no se pasa o una clave está vacía, se usan DEFAULT_SECTION_INSTRUCTIONS.
+        custom_section_titles: Dict section_key -> título de sección (opcional). Si no se pasa o una clave está vacía, se usan REPORT_SECTIONS.
+        custom_sections: Lista de secciones dinámicas [{"key", "title", "prompt"?}]. Si se pasa y no está vacía, se usa en lugar de REPORT_SECTIONS + custom_prompts/titles.
 
     Returns:
         Prompt completo para Gemini
@@ -59,6 +179,17 @@ def get_initial_analysis_prompt(sector_name: str, additional_context: str = "", 
     context_info = ""
     if additional_context:
         context_info = f"\n**Contexto adicional:** {additional_context}"
+
+    use_custom_sections = custom_sections and len(custom_sections) > 0
+    if use_custom_sections:
+        section_keys = [sec.get("key") or f"section_{i+1}" for i, sec in enumerate(custom_sections)]
+        section_keys_str = ", ".join([f'"{k}"' for k in section_keys])
+        section_instructions_block = _build_section_instructions_from_custom(custom_sections, thesis)
+        sections_json_block = _format_sections_json_example_from_custom(custom_sections)
+    else:
+        section_keys_str = ", ".join([f'"{k}"' for k in REPORT_SECTIONS.keys()])
+        section_instructions_block = _build_section_instructions(thesis, custom_prompts, custom_section_titles)
+        sections_json_block = _format_sections_json_example(custom_section_titles)
 
     prompt = f"""ERES EL DIRECTOR DE INVERSIONES (CIO) DE 'EMERITA', UN SEARCH FUND DE ÉLITE EN ESPAÑA.
 
@@ -84,55 +215,14 @@ Debes evaluar el sector usando ESTRICTAMENTE estos filtros. Si el sector falla e
 ## 3. ESTRUCTURA DEL INFORME (OBLIGATORIA)
 
 Debes generar un JSON válido donde las claves sean exactamente:
-{', '.join([f'"{k}"' for k in REPORT_SECTIONS.keys()])}
+{section_keys_str}
 
 Cada sección debe tener la estructura:
 {{"title": "Título de la sección", "content": "Contenido en Markdown"}}
 
 ### CONTENIDO POR SECCIÓN:
 
-**1. RESUMEN EJECUTIVO Y SEMÁFORO:**
-- Conclusión directa.
-- **VEREDICTO:** [VERDE / ÁMBAR / ROJO]. Justifica el color basándote en márgenes y fragmentación.
-- Si el margen es <15%, el semáforo DEBE ser ROJO o ÁMBAR.
-
-**2. UNIT ECONOMICS Y FINANCIEROS:**
-- ¿Cómo gana dinero una empresa aquí? Desglose de costes típicos.
-- Márgenes medios observados (Bruto y EBITDA).
-- Ciclo de caja (¿Quién financia a quién?).
-
-**3. TAMAÑO Y SEGMENTACIÓN:**
-- Estimación TAM/SAM en España. Tendencia (CAGR).
-- Segmentos más atractivos para un Search Fund.
-
-**4. CADENA DE VALOR:**
-- Diagrama textual (Proveedor → Fabricante → Distribuidor → Cliente).
-- ¿Quién tiene la sartén por el mango (poder de negociación)?
-
-**5. ESTRUCTURA COMPETITIVA:**
-- Grado de concentración.
-- Menciona nombres de competidores reales encontrados en el contexto.
-- Busca el "Arquetipo Ideal": Empresa familiar, 20+ años historia, dueños ≥60 años.
-
-**6. REGULACIÓN Y RIESGOS:**
-- Barreras de entrada reales. Normativas críticas (ej. ISOs, Marcado CE).
-- Deal Killers: {', '.join(thesis.get('DEAL_KILLERS', ['Riesgo tecnológico alto', 'Dependencia de un solo cliente', 'Sector en declive', 'Márgenes muy bajos']))}.
-
-**7. OPORTUNIDADES (PALANCAS DE VALOR):**
-- ¿Dónde está la ineficiencia? (Ej. Procesos en papel, sin equipo comercial).
-- Palancas de valor disponibles: {', '.join(thesis.get('VALUE_LEVERS', ['Digitalización', 'Profesionalización comercial', 'Eficiencia operativa']))}.
-- ¿Cómo puede Emerita multiplicar el EBITDA?
-
-**8. HIPÓTESIS Y TARGETS:**
-- Perfil ideal de empresa target.
-- Criterios de búsqueda específicos.
-
-**9. CONCLUSIÓN ESTRUCTURADA:**
-- Síntesis ejecutiva de hallazgos clave.
-- Recomendación final.
-
-**10. SEÑALES DE BÚSQUEDA:**
-- Qué buscar en Google/LinkedIn para encontrar al target (señales).
+{section_instructions_block}
 
 ## 4. DATOS PROPORCIONADOS
 
@@ -161,16 +251,7 @@ Debes devolver ÚNICAMENTE un JSON válido con esta estructura exacta:
         "timestamp": "YYYY-MM-DD"
     }},
     "sections": {{
-        "1_executive_summary": {{"title": "1. Resumen Ejecutivo y Semáforo", "content": "..."}},
-        "2_financials": {{"title": "2. Unit Economics y Financieros", "content": "..."}},
-        "3_market_size": {{"title": "3. Tamaño y Segmentación", "content": "..."}},
-        "4_value_chain": {{"title": "4. Cadena de Valor", "content": "..."}},
-        "5_competition": {{"title": "5. Estructura Competitiva", "content": "..."}},
-        "6_regulations": {{"title": "6. Regulación y Riesgos", "content": "..."}},
-        "7_opportunities": {{"title": "7. Oportunidades (Tesis Emerita)", "content": "..."}},
-        "8_gtm_targets": {{"title": "8. Hipótesis y Targets", "content": "..."}},
-        "9_conclusion": {{"title": "9. Conclusión Estructurada", "content": "..."}},
-        "10_sourcing_signals": {{"title": "10. Señales de Búsqueda", "content": "..."}}
+{sections_json_block}
     }}
 }}
 

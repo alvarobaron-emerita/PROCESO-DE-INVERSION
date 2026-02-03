@@ -34,23 +34,39 @@ const tools: Tool[] = [
 interface ToolSwitcherProps {
   activeTool: ToolType;
   onToolChange: (tool: ToolType) => void;
+  /** Cuando true, solo muestra el icono (para sidebar colapsado) */
+  compact?: boolean;
 }
 
-export function ToolSwitcher({ activeTool, onToolChange }: ToolSwitcherProps) {
+export function ToolSwitcher({ activeTool, onToolChange, compact = false }: ToolSwitcherProps) {
   const currentTool = tools.find((t) => t.id === activeTool) || tools[1];
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button className="flex items-center gap-2 px-3 py-1.5 rounded-md hover:bg-accent transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-          <currentTool.icon className="h-4 w-4 text-primary" />
-          <span className="font-medium text-sm text-foreground">
-            {currentTool.name}
-          </span>
-          <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+        <button
+          className={cn(
+            "flex items-center rounded-md hover:bg-accent transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            compact ? "justify-center p-2 w-full" : "gap-2 px-3 py-1.5"
+          )}
+        >
+          <currentTool.icon className="h-4 w-4 text-primary shrink-0" />
+          {!compact && (
+            <>
+              <span className="font-medium text-sm text-foreground truncate">
+                {currentTool.name}
+              </span>
+              <ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+            </>
+          )}
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-56 bg-popover">
+      <DropdownMenuContent
+        side="right"
+        align="start"
+        sideOffset={8}
+        className="z-[100] w-56 bg-popover shadow-lg"
+      >
         {tools.map((tool) => (
           <DropdownMenuItem
             key={tool.id}

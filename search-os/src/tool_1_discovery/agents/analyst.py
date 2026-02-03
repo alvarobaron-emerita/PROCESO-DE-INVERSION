@@ -9,7 +9,7 @@ from datetime import datetime
 from typing import Dict, Optional
 from langchain_google_genai import ChatGoogleGenerativeAI
 from shared.config import GOOGLE_API_KEY
-from tool_1_discovery.prompts.initial_analysis import get_initial_analysis_prompt
+from tool_1_discovery.prompts.initial_analysis import get_initial_analysis_prompt, REPORT_SECTIONS
 
 
 def generate_initial_report(
@@ -18,7 +18,9 @@ def generate_initial_report(
     cnae_codes: list = None,
     web_context: str = "",
     emerita_thesis: dict = None,
-    custom_prompts: dict = None
+    custom_prompts: dict = None,
+    custom_section_titles: dict = None,
+    custom_sections: list = None
 ) -> Dict:
     """
     Genera el informe inicial completo en formato JSON estructurado.
@@ -43,7 +45,9 @@ def generate_initial_report(
         cnae_codes=cnae_codes,
         web_context=web_context,
         emerita_thesis=emerita_thesis,
-        custom_prompts=custom_prompts
+        custom_prompts=custom_prompts,
+        custom_section_titles=custom_section_titles,
+        custom_sections=custom_sections
     )
 
     try:
@@ -79,13 +83,14 @@ def generate_initial_report(
         if 'verdict' not in report_data['meta']:
             report_data['meta']['verdict'] = "ÁMBAR"  # Por defecto
 
-        # Validar que todas las secciones existen
-        required_sections = [
-            "1_executive_summary", "2_financials", "3_market_size",
-            "4_value_chain", "5_competition", "6_regulations",
-            "7_opportunities", "8_gtm_targets", "9_conclusion",
-            "10_sourcing_signals"
-        ]
+        # Validar que todas las secciones existen (dinámicas o por defecto)
+        if custom_sections and len(custom_sections) > 0:
+            required_sections = [
+                sec.get("key") or f"section_{i + 1}"
+                for i, sec in enumerate(custom_sections)
+            ]
+        else:
+            required_sections = list(REPORT_SECTIONS.keys())
 
         for section_key in required_sections:
             if section_key not in report_data['sections']:

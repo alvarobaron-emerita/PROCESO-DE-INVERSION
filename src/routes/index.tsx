@@ -15,6 +15,7 @@ function Home() {
   const [activeTool, setActiveTool] = useState<ToolType>("search");
   const [activeProject, setActiveProject] = useState<Project | null>(null);
   const [showSettings, setShowSettings] = useState(false);
+  const [requestDiscoveryConfig, setRequestDiscoveryConfig] = useState(false);
 
   return (
     <div className="flex min-h-screen w-full bg-background">
@@ -26,12 +27,18 @@ function Home() {
         showSettings={showSettings}
         onSettingsToggle={setShowSettings}
         activeTool={activeTool}
+        onToolChange={setActiveTool}
+        onRequestNewDiscoveryAnalysis={() => {
+          setRequestDiscoveryConfig(true);
+          setActiveProject(null);
+        }}
       />
       <MainContent
         activeTool={activeTool}
-        onToolChange={setActiveTool}
         activeProject={activeProject}
         showSettings={showSettings}
+        requestDiscoveryConfig={requestDiscoveryConfig}
+        onClearRequestDiscoveryConfig={() => setRequestDiscoveryConfig(false)}
       />
       <AIChatSidebar
         collapsed={chatCollapsed}

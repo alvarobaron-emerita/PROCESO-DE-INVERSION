@@ -1,16 +1,15 @@
-import { useState, useEffect } from "react";
-import {
-  ChevronLeft,
-  ChevronRight,
-  Settings,
-  Zap,
-  Search,
-} from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { ChevronLeft, ChevronRight, Settings } from "lucide-react";
 import { cn } from "~/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
 import { ProjectSelector } from "./ProjectSelector";
+import { ToolSwitcher } from "./ToolSwitcher";
 import type { ToolType } from "./ToolSwitcher";
 import { useApi, useQuery } from "~/trpc/react";
+import {
+  getAnalyses,
+  DISCOVERY_ANALYSES_CHANGED,
+} from "~/components/DiscoveryEngine/discoveryStorage";
 
 export interface Project {
   id: string;
@@ -28,6 +27,9 @@ interface AppSidebarProps {
   showSettings: boolean;
   onSettingsToggle: (show: boolean) => void;
   activeTool: ToolType;
+  onToolChange: (tool: ToolType) => void;
+  /** Llamado cuando el usuario pide "Nuevo análisis" en Discovery (no se usa API de proyectos) */
+  onRequestNewDiscoveryAnalysis?: () => void;
 }
 
 export function AppSidebar({
@@ -38,8 +40,19 @@ export function AppSidebar({
   showSettings,
   onSettingsToggle,
   activeTool,
+  onToolChange,
+  onRequestNewDiscoveryAnalysis,
 }: AppSidebarProps) {
   const api = useApi();
+  const [discoveryRefresh, setDiscoveryRefresh] = useState(0);
+
+  // Refrescar lista de análisis Discovery cuando se guarda uno (evento desde DiscoveryEngine)
+  useEffect(() => {
+    const handler = () => setDiscoveryRefresh((r) => r + 1);
+    window.addEventListener(DISCOVERY_ANALYSES_CHANGED, handler);
+    return () => window.removeEventListener(DISCOVERY_ANALYSES_CHANGED, handler);
+  }, []);
+
   // Obtener proyectos desde el backend (API oficial tRPC v11)
   const { data: projectsData, refetch: refetchProjects } = useQuery(
     api.tool2.listProjects.queryOptions(undefined, {
@@ -55,8 +68,15 @@ export function AppSidebar({
       tool: "search" as ToolType,
     })) || [];
 
-  // Proyectos de Discovery (por ahora vacíos, se implementarán después)
-  const discoveryProjects: Project[] = [];
+  // Análisis guardados de Discovery (localStorage), convertidos a formato Project
+  const discoveryProjects: Project[] = useMemo(() => {
+    if (activeTool !== "discovery") return [];
+    return getAnalyses().map((a) => ({
+      id: a.id,
+      name: a.sectorName,
+      tool: "discovery" as ToolType,
+    }));
+  }, [activeTool, discoveryRefresh]);
 
   // Obtener proyectos para la herramienta activa
   const currentProjects = activeTool === "search" ? searchProjects : discoveryProjects;
@@ -73,9 +93,6 @@ export function AppSidebar({
     onProjectChange(newProject);
     refetchProjects();
   };
-
-  const ToolIcon = activeTool === "discovery" ? Zap : Search;
-  const toolLabel = activeTool === "discovery" ? "Discovery" : "Search";
 
   return (
     <aside
@@ -96,42 +113,14 @@ export function AppSidebar({
         )}
       </button>
 
-      {/* Logo / App Name */}
+      {/* Selector de herramienta (Discovery Engine / Search OS) */}
       <div className="p-3 border-b border-sidebar-border">
-        <div
-          className={cn(
-            "flex items-center rounded-md",
-            collapsed ? "justify-center p-2" : "gap-2 p-2"
-          )}
-        >
-          <span className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground text-sm font-bold">
-            S
-          </span>
-          {!collapsed && (
-            <span className="font-semibold text-sidebar-primary">
-              Search OS
-            </span>
-          )}
-        </div>
+        <ToolSwitcher
+          activeTool={activeTool}
+          onToolChange={onToolChange}
+          compact={collapsed}
+        />
       </div>
-
-      {/* Tool Indicator (collapsed) */}
-      {collapsed && (
-        <div className="p-3 border-b border-sidebar-border">
-          <div className="flex items-center justify-center">
-            <div
-              className={cn(
-                "flex h-8 w-8 items-center justify-center rounded-md",
-                activeTool === "discovery"
-                  ? "bg-primary/20 text-primary"
-                  : "bg-muted text-muted-foreground"
-              )}
-            >
-              <ToolIcon className="h-4 w-4" />
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Navigation */}
       <nav className="flex-1 p-3 space-y-3 overflow-y-auto">
@@ -144,6 +133,7 @@ export function AppSidebar({
             onSettingsToggle(false);
           }}
           onCreateProject={handleCreateProject}
+          onRequestNewAnalysis={onRequestNewDiscoveryAnalysis}
           collapsed={collapsed}
           activeTool={activeTool}
         />

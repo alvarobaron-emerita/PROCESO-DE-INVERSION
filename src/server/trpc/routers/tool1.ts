@@ -58,6 +58,16 @@ export const tool1Router = createTRPCRouter({
         additionalContext: z.string().optional(),
         emeritaThesis: z.record(z.unknown()).optional(),
         customPrompts: z.record(z.unknown()).optional(),
+        customSectionTitles: z.record(z.string()).optional(),
+        customSections: z
+          .array(
+            z.object({
+              key: z.string(),
+              title: z.string(),
+              prompt: z.string().optional(),
+            })
+          )
+          .optional(),
       })
     )
     .mutation(async ({ input }) => {
@@ -68,6 +78,8 @@ export const tool1Router = createTRPCRouter({
         additional_context: input.additionalContext,
         emerita_thesis: input.emeritaThesis,
         custom_prompts: input.customPrompts,
+        custom_section_titles: input.customSectionTitles,
+        custom_sections: input.customSections,
       });
     }),
 
@@ -98,6 +110,14 @@ export const tool1Router = createTRPCRouter({
         message: z.string(),
         sectionKey: z.string().optional(),
         report: z.record(z.unknown()),
+        history: z
+          .array(
+            z.object({
+              role: z.enum(["user", "assistant"]),
+              content: z.string(),
+            })
+          )
+          .optional(),
       })
     )
     .mutation(async ({ input }) => {
@@ -105,6 +125,7 @@ export const tool1Router = createTRPCRouter({
         message: input.message,
         section_key: input.sectionKey,
         report: input.report,
+        history: input.history?.map((h) => ({ role: h.role, content: h.content })),
       });
     }),
 

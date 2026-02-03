@@ -1,7 +1,8 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { ConfigPanel } from "./ConfigPanel";
 import { ChatPanel } from "./ChatPanel";
 import { ReportViewer } from "./ReportViewer";
+import { SummaryView } from "./SummaryView";
 export { DiscoverySettings } from "./DiscoverySettings";
 import {
   DiscoveryConfig,
@@ -9,14 +10,20 @@ import {
   AnalysisStatus,
   AgentStatus,
   AnalysisReport,
+  type SavedAnalysis,
 } from "./types";
 import { reportToMarkdown, getErrorFallbackMarkdown } from "./reportUtils";
 import type { BackendReport } from "./reportUtils";
+import { getAnalyses, saveAnalysis, getAnalysisById, updateAnalysis, notifyAnalysesChanged } from "./discoveryStorage";
 import { useApi, useMutation } from "~/trpc/react";
 import { useToast } from "~/hooks/use-toast";
 
+type DiscoveryView = "list" | "config" | "report";
+
 const DISCOVERY_EMERITA_KEY = "discovery_emerita_thesis";
 const DISCOVERY_PROMPTS_KEY = "discovery_custom_prompts";
+const DISCOVERY_SECTION_TITLES_KEY = "discovery_section_titles";
+const DISCOVERY_SECTIONS_KEY = "discovery_sections";
 
 function backendReportToAnalysisReport(
   backendReport: BackendReport,
@@ -41,16 +48,83 @@ const initialAgents: AgentStatus[] = [
   { name: "Gemini Analysis Agent", status: "pending", icon: "🧠" },
 ];
 
-export function DiscoveryEngine() {
+interface DiscoveryEngineProps {
+  /** ID del análisis a abrir (desde el sidebar). null = ninguno; undefined = modo interno (lista propia) */
+  openAnalysisId?: string | null;
+  /** Si true, abrir directamente el panel de config (nuevo análisis) */
+  requestDiscoveryConfig?: boolean;
+  /** Llamado al abrir el panel de config */
+  onClearRequestDiscoveryConfig?: () => void;
+}
+
+export function DiscoveryEngine({
+  openAnalysisId,
+  requestDiscoveryConfig = false,
+  onClearRequestDiscoveryConfig,
+}: DiscoveryEngineProps = {}) {
   const api = useApi();
   const { toast } = useToast();
+  const sidebarMode = openAnalysisId !== undefined;
+  const [savedAnalyses, setSavedAnalyses] = useState<SavedAnalysis[]>(() =>
+    getAnalyses()
+  );
+  const [view, setView] = useState<DiscoveryView>(() =>
+    getAnalyses().length > 0 ? "list" : "config"
+  );
   const [analysisStatus, setAnalysisStatus] = useState<AnalysisStatus>("idle");
   const [agents, setAgents] = useState<AgentStatus[]>(initialAgents);
   const [config, setConfig] = useState<DiscoveryConfig | null>(null);
   const [report, setReport] = useState<AnalysisReport | null>(null);
+  const [backendReport, setBackendReport] = useState<BackendReport | null>(null);
   const [markdown, setMarkdown] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [currentAnalysisId, setCurrentAnalysisId] = useState<string | null>(null);
+  const [isEditingReport, setIsEditingReport] = useState(false);
+
+  // Sincronizar con sidebar: abrir análisis seleccionado
+  useEffect(() => {
+    if (!sidebarMode) return;
+    if (openAnalysisId === null || openAnalysisId === "") {
+      setCurrentAnalysisId(null);
+      setReport(null);
+      setBackendReport(null);
+      setMarkdown(null);
+      setView("list");
+      return;
+    }
+    const saved = getAnalysisById(openAnalysisId);
+    if (saved) {
+      const backendReport = saved.report as BackendReport;
+      setConfig({ sector: saved.sectorName, context: saved.context });
+      setReport(backendReportToAnalysisReport(backendReport, saved.sectorName));
+      setBackendReport(backendReport);
+      setMarkdown(saved.editedMarkdown ?? reportToMarkdown(backendReport));
+      setMessages([]);
+      setAnalysisStatus("complete");
+      setView("report");
+      setCurrentAnalysisId(saved.id);
+    }
+  }, [sidebarMode, openAnalysisId]);
+
+  // Sincronizar con sidebar: abrir panel de config (nuevo análisis)
+  useEffect(() => {
+    if (requestDiscoveryConfig && sidebarMode) {
+      setView("config");
+      setAnalysisStatus("idle");
+      setConfig(null);
+      setReport(null);
+      setBackendReport(null);
+      setMarkdown(null);
+      setMessages([]);
+      setAgents(initialAgents);
+      onClearRequestDiscoveryConfig?.();
+    }
+  }, [requestDiscoveryConfig, sidebarMode, onClearRequestDiscoveryConfig]);
+
+  useEffect(() => {
+    setSavedAnalyses(getAnalyses());
+  }, [view]);
 
   // Mutations para llamar al backend (API oficial tRPC v11)
   const classifyMutation = useMutation(api.tool1.classifySector.mutationOptions());
@@ -125,9 +199,11 @@ export function DiscoveryEngine() {
           }))
         );
 
-        // Paso 3: Generar reporte (con Manifiesto y prompts desde Ajustes si existen)
+        // Paso 3: Generar reporte (Manifiesto + secciones desde Ajustes: customSections o customPrompts/customSectionTitles)
         let emeritaThesis: Record<string, unknown> | undefined;
         let customPrompts: Record<string, unknown> | undefined;
+        let customSectionTitles: Record<string, string> | undefined;
+        let customSections: Array<{ key: string; title: string; prompt?: string }> | undefined;
         try {
           const stored = localStorage.getItem(DISCOVERY_EMERITA_KEY);
           if (stored) emeritaThesis = JSON.parse(stored) as Record<string, unknown>;
@@ -135,10 +211,27 @@ export function DiscoveryEngine() {
           /* ignore */
         }
         try {
-          const stored = localStorage.getItem(DISCOVERY_PROMPTS_KEY);
-          if (stored) customPrompts = JSON.parse(stored) as Record<string, unknown>;
+          const stored = localStorage.getItem(DISCOVERY_SECTIONS_KEY);
+          if (stored) {
+            const parsed = JSON.parse(stored) as Array<{ key: string; title: string; prompt?: string }>;
+            if (Array.isArray(parsed) && parsed.length > 0) customSections = parsed;
+          }
         } catch {
           /* ignore */
+        }
+        if (!customSections) {
+          try {
+            const stored = localStorage.getItem(DISCOVERY_PROMPTS_KEY);
+            if (stored) customPrompts = JSON.parse(stored) as Record<string, unknown>;
+          } catch {
+            /* ignore */
+          }
+          try {
+            const stored = localStorage.getItem(DISCOVERY_SECTION_TITLES_KEY);
+            if (stored) customSectionTitles = JSON.parse(stored) as Record<string, string>;
+          } catch {
+            /* ignore */
+          }
         }
 
         const reportResult = await generateReportMutation.mutateAsync({
@@ -148,6 +241,8 @@ export function DiscoveryEngine() {
           additionalContext: newConfig.context || undefined,
           emeritaThesis,
           customPrompts,
+          customSectionTitles,
+          customSections,
         });
 
         setAgents((prev) =>
@@ -162,8 +257,23 @@ export function DiscoveryEngine() {
         );
 
         setReport(analysisReport);
+        setBackendReport(backendReport);
         setMarkdown(reportMarkdown);
         setAnalysisStatus("complete");
+        setView("report");
+
+        const newId = crypto.randomUUID();
+        const saved: SavedAnalysis = {
+          id: newId,
+          sectorName: newConfig.sector,
+          context: newConfig.context || undefined,
+          createdAt: new Date().toISOString(),
+          report: backendReport,
+        };
+        saveAnalysis(saved);
+        setSavedAnalyses(getAnalyses());
+        setCurrentAnalysisId(newId);
+        notifyAnalysesChanged();
 
         const verdictText =
           analysisReport.verdict === "green"
@@ -188,13 +298,15 @@ export function DiscoveryEngine() {
           variant: "destructive",
         });
         setMarkdown(getErrorFallbackMarkdown(newConfig.sector));
+        const fallbackBackend: BackendReport = {
+          meta: { sector_name: newConfig.sector, verdict: "ÁMBAR" },
+        };
         setReport(
-          backendReportToAnalysisReport(
-            { meta: { sector_name: newConfig.sector, verdict: "ÁMBAR" } },
-            newConfig.sector
-          )
+          backendReportToAnalysisReport(fallbackBackend, newConfig.sector)
         );
+        setBackendReport(fallbackBackend);
         setAnalysisStatus("complete");
+        setView("report");
         setMessages([
           {
             id: "1",
@@ -221,11 +333,15 @@ export function DiscoveryEngine() {
       setIsProcessing(true);
 
       try {
-        // Llamar al backend para obtener respuesta del chat
+        // Historial reciente (últimos 10 mensajes) para contexto conversacional
+        const recentHistory = messages
+          .slice(-10)
+          .map((m) => ({ role: m.role as "user" | "assistant", content: m.content }));
+
         const chatResult = await chatMutation.mutateAsync({
           message: content,
-          sectionKey: "1_executive_summary",
-          report: report || {},
+          report: backendReport ?? {},
+          history: recentHistory.length > 0 ? recentHistory : undefined,
         });
 
         const assistantMessage: ChatMessage = {
@@ -238,11 +354,11 @@ export function DiscoveryEngine() {
         setMessages((prev) => [...prev, assistantMessage]);
       } catch (error) {
         console.error("Error en chat:", error);
-        // Respuesta de fallback
         const assistantMessage: ChatMessage = {
           id: (Date.now() + 1).toString(),
           role: "assistant",
-          content: `He analizado tu consulta sobre "${content}". Basándome en los datos del sector ${config?.sector}, puedo indicarte que esta es una consideración relevante para la tesis de inversión. ¿Te gustaría que profundice en algún aspecto específico?`,
+          content:
+            "No se pudo obtener respuesta. Comprueba que el backend esté en marcha y la conexión sea correcta, o inténtalo más tarde.",
           timestamp: new Date(),
         };
         setMessages((prev) => [...prev, assistantMessage]);
@@ -250,7 +366,7 @@ export function DiscoveryEngine() {
         setIsProcessing(false);
       }
     },
-    [chatMutation, config, report]
+    [chatMutation, backendReport, messages]
   );
 
   const handleReset = useCallback(() => {
@@ -258,8 +374,35 @@ export function DiscoveryEngine() {
     setAgents(initialAgents);
     setConfig(null);
     setReport(null);
+    setBackendReport(null);
     setMarkdown(null);
     setMessages([]);
+    setView("list");
+  }, []);
+
+  const handleSelectAnalysis = useCallback((id: string) => {
+    const saved = getAnalysisById(id);
+    if (!saved) return;
+    const backendReport = saved.report as BackendReport;
+    setConfig({ sector: saved.sectorName, context: saved.context });
+    setReport(backendReportToAnalysisReport(backendReport, saved.sectorName));
+    setBackendReport(backendReport);
+    setMarkdown(saved.editedMarkdown ?? reportToMarkdown(backendReport));
+    setMessages([]);
+    setAnalysisStatus("complete");
+    setView("report");
+    setCurrentAnalysisId(saved.id);
+  }, []);
+
+  const handleNewAnalysis = useCallback(() => {
+    setView("config");
+    setAnalysisStatus("idle");
+    setConfig(null);
+    setReport(null);
+    setBackendReport(null);
+    setMarkdown(null);
+    setMessages([]);
+    setAgents(initialAgents);
   }, []);
 
   const handleCreateProject = useCallback(() => {
@@ -270,19 +413,42 @@ export function DiscoveryEngine() {
     });
   }, [report, toast]);
 
-  const isConfigMode = analysisStatus !== "complete";
+  const handleSaveEditedReport = useCallback(
+    (editedMarkdown: string) => {
+      if (!currentAnalysisId) return;
+      updateAnalysis(currentAnalysisId, { editedMarkdown });
+      setMarkdown(editedMarkdown);
+      setIsEditingReport(false);
+      notifyAnalysesChanged();
+      toast({ title: "Informe guardado", description: "Los cambios se han guardado correctamente." });
+    },
+    [currentAnalysisId, toast]
+  );
 
   return (
     <div className="flex h-full rounded-lg overflow-hidden border border-border/50 bg-card">
       {/* Left Panel - 35% */}
       <div className="w-[35%] border-r border-border/50 flex flex-col bg-background/50">
-        {isConfigMode ? (
+        {view === "list" && !sidebarMode && (
+          <SummaryView
+            analyses={savedAnalyses}
+            onSelectAnalysis={handleSelectAnalysis}
+            onNewAnalysis={handleNewAnalysis}
+          />
+        )}
+        {view === "list" && sidebarMode && (
+          <div className="flex flex-col items-center justify-center flex-1 text-center px-6 text-muted-foreground">
+            <p className="text-sm">Selecciona un análisis en el sidebar o crea uno nuevo.</p>
+          </div>
+        )}
+        {view === "config" && (
           <ConfigPanel
             onStartAnalysis={handleStartAnalysis}
             analysisStatus={analysisStatus}
             agents={agents}
           />
-        ) : (
+        )}
+        {view === "report" && (
           <ChatPanel
             messages={messages}
             onSendMessage={handleSendMessage}
@@ -295,12 +461,27 @@ export function DiscoveryEngine() {
 
       {/* Right Panel - 65% */}
       <div className="w-[65%] flex flex-col bg-background">
-        <ReportViewer
-          markdown={markdown}
-          report={report}
-          isLoading={analysisStatus === "analyzing"}
-          onCreateProject={handleCreateProject}
-        />
+        {view === "list" && (
+          <div className="flex flex-col items-center justify-center h-full text-center px-8 text-muted-foreground">
+            <p className="text-sm">
+              {sidebarMode
+                ? "Selecciona un análisis del sidebar o crea uno nuevo."
+                : "Selecciona un análisis de la lista o crea uno nuevo."}
+            </p>
+          </div>
+        )}
+        {(view === "config" || view === "report") && (
+          <ReportViewer
+            markdown={markdown}
+            report={report}
+            isLoading={analysisStatus === "analyzing"}
+            onCreateProject={handleCreateProject}
+            isEditing={isEditingReport}
+            onStartEdit={() => setIsEditingReport(true)}
+            onCancelEdit={() => setIsEditingReport(false)}
+            onSaveEdited={handleSaveEditedReport}
+          />
+        )}
       </div>
     </div>
   );

@@ -25,7 +25,7 @@ import {
 } from "lucide-react";
 import { DataGrid } from "./DataGrid";
 import { DiscoveryEngine, DiscoverySettings } from "./DiscoveryEngine";
-import { ToolSwitcher, ToolType } from "./ToolSwitcher";
+import { ToolType } from "./ToolSwitcher";
 import { NewViewDialog } from "./DataGrid/NewViewDialog";
 import { ViewInfo } from "./DataGrid/types";
 import { FileUpload } from "./FileUpload";
@@ -58,16 +58,20 @@ const iconComponents: Record<string, LucideIcon> = {
 
 interface MainContentProps {
   activeTool: ToolType;
-  onToolChange: (tool: ToolType) => void;
   activeProject: Project | null;
   showSettings: boolean;
+  /** Si true, Discovery Engine abre directamente el panel de config (nuevo análisis) */
+  requestDiscoveryConfig?: boolean;
+  /** Llamado cuando Discovery Engine ha abierto el panel de config */
+  onClearRequestDiscoveryConfig?: () => void;
 }
 
 export function MainContent({
   activeTool,
-  onToolChange,
   activeProject,
   showSettings,
+  requestDiscoveryConfig = false,
+  onClearRequestDiscoveryConfig,
 }: MainContentProps) {
   const api = useApi();
   const [activeViewId, setActiveViewId] = useState<string | null>(null);
@@ -194,8 +198,6 @@ export function MainContent({
         <header className="flex-shrink-0 border-b border-border bg-[hsl(var(--header-background))]">
           <div className="px-6 py-3">
             <nav className="flex items-center gap-2 text-sm">
-              <ToolSwitcher activeTool={activeTool} onToolChange={onToolChange} />
-              <span className="text-muted-foreground">/</span>
               <span className="font-medium text-foreground">Ajustes</span>
             </nav>
           </div>
@@ -220,10 +222,8 @@ export function MainContent({
       {/* Top Header with Tool Switcher and Breadcrumbs */}
       <header className="flex-shrink-0 border-b border-border bg-[hsl(var(--header-background))]">
         <div className="px-6 py-3">
-          {/* Breadcrumbs with Tool Switcher */}
+          {/* Breadcrumbs */}
           <nav className="flex items-center gap-2 text-sm">
-            <ToolSwitcher activeTool={activeTool} onToolChange={onToolChange} />
-            <span className="text-muted-foreground">/</span>
             <span
               className={cn(
                 "font-medium",
@@ -334,7 +334,11 @@ export function MainContent({
             </div>
           )
         ) : (
-          <DiscoveryEngine />
+          <DiscoveryEngine
+            openAnalysisId={activeProject?.id ?? null}
+            requestDiscoveryConfig={requestDiscoveryConfig}
+            onClearRequestDiscoveryConfig={onClearRequestDiscoveryConfig}
+          />
         )}
       </main>
 
