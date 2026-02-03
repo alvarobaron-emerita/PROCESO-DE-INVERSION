@@ -50,7 +50,9 @@ class ReportRequest(BaseModel):
     sector_name: str
     cnae_codes: List[str]
     research_data: str
+    additional_context: Optional[str] = None
     emerita_thesis: Optional[Dict[str, Any]] = None
+    custom_prompts: Optional[Dict[str, Any]] = None
 
 
 class ChatMessage(BaseModel):
@@ -136,9 +138,11 @@ async def generate_report_endpoint(request: ReportRequest):
     try:
         report = generate_initial_report(
             sector_name=request.sector_name,
+            additional_context=request.additional_context or "",
             cnae_codes=request.cnae_codes,
-            research_data=request.research_data,
-            emerita_thesis=request.emerita_thesis
+            web_context=request.research_data,
+            emerita_thesis=request.emerita_thesis,
+            custom_prompts=request.custom_prompts,
         )
 
         return {

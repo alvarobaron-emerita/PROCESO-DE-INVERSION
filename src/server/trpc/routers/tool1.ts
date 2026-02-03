@@ -55,7 +55,9 @@ export const tool1Router = createTRPCRouter({
         sectorName: z.string(),
         cnaeCodes: z.array(z.string()),
         researchData: z.string(),
+        additionalContext: z.string().optional(),
         emeritaThesis: z.record(z.unknown()).optional(),
+        customPrompts: z.record(z.unknown()).optional(),
       })
     )
     .mutation(async ({ input }) => {
@@ -63,7 +65,9 @@ export const tool1Router = createTRPCRouter({
         sector_name: input.sectorName,
         cnae_codes: input.cnaeCodes,
         research_data: input.researchData,
+        additional_context: input.additionalContext,
         emerita_thesis: input.emeritaThesis,
+        custom_prompts: input.customPrompts,
       });
     }),
 

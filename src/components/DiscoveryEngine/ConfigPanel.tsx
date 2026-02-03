@@ -48,26 +48,29 @@ export function ConfigPanel({
       <div className="space-y-6 flex-1">
         <div className="space-y-2">
           <Label htmlFor="sector" className="text-foreground">
-            Nombre del Sector / Nicho
+            Sector o empresa
           </Label>
           <Input
             id="sector"
-            placeholder="Ej: Sector vitivinícola en España"
+            placeholder="Ej: Mantenimiento de ascensores · o Tecnotrash"
             value={sector}
             onChange={(e) => setSector(e.target.value)}
             disabled={isAnalyzing}
             className="bg-background/50 border-border/50 focus:border-primary"
           />
+          <p className="text-xs text-muted-foreground">
+            Puedes escribir el nombre de un sector/nicho o de una empresa; en el contexto indica si es una empresa para analizar su sector.
+          </p>
         </div>
 
         <div className="space-y-2">
           <Label htmlFor="context" className="text-foreground">
-            Contexto Adicional{" "}
-            <span className="text-muted-foreground">(Opcional)</span>
+            Contexto adicional{" "}
+            <span className="text-muted-foreground">(opcional)</span>
           </Label>
           <Textarea
             id="context"
-            placeholder="Ej: Buscamos empresas familiares con facturación entre 5-20M€..."
+            placeholder="Ej: Es una empresa, quiero analizar su sector · o Centrarse en mantenimiento, no instalación"
             value={context}
             onChange={(e) => setContext(e.target.value)}
             disabled={isAnalyzing}

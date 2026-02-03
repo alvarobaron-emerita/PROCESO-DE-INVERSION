@@ -24,7 +24,7 @@ import {
   LucideIcon,
 } from "lucide-react";
 import { DataGrid } from "./DataGrid";
-import { DiscoveryEngine } from "./DiscoveryEngine";
+import { DiscoveryEngine, DiscoverySettings } from "./DiscoveryEngine";
 import { ToolSwitcher, ToolType } from "./ToolSwitcher";
 import { NewViewDialog } from "./DataGrid/NewViewDialog";
 import { ViewInfo } from "./DataGrid/types";
@@ -203,7 +203,13 @@ export function MainContent({
 
         {/* Settings Content */}
         <main className="flex-1 overflow-auto p-6">
-          <p className="text-muted-foreground">Configuración de ajustes (por implementar)</p>
+          {activeTool === "discovery" ? (
+            <DiscoverySettings />
+          ) : (
+            <p className="text-muted-foreground">
+              Configuración de Search OS (por implementar)
+            </p>
+          )}
         </main>
       </div>
     );

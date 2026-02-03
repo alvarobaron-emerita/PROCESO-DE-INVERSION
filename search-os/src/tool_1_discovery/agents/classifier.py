@@ -11,11 +11,11 @@ from shared.config import GOOGLE_API_KEY
 
 def classify_sector(sector_name: str, additional_context: str = "") -> List[str]:
     """
-    Mapea un sector a códigos CNAE 2009 (España) usando Gemini.
+    Mapea un sector (o una empresa, inferiendo su sector) a códigos CNAE 2009 (España).
 
     Args:
-        sector_name: Nombre del sector a clasificar (ej. "Mantenimiento de Ascensores")
-        additional_context: Contexto adicional para refinar la clasificación
+        sector_name: Nombre del sector a clasificar o nombre de una empresa (ej. "Mantenimiento de Ascensores" o "Tecnotrash")
+        additional_context: Contexto adicional (ej. "Es una empresa, analizar su sector" o "Centrarse en mantenimiento, no instalación")
 
     Returns:
         Lista de códigos CNAE (ej. ["4322", "4321"])
@@ -24,17 +24,29 @@ def classify_sector(sector_name: str, additional_context: str = "") -> List[str]
     if not GOOGLE_API_KEY:
         raise ValueError("GOOGLE_API_KEY no está configurada en variables de entorno")
 
-    # Prompt para clasificación CNAE
+    context_note = ""
+    if additional_context:
+        context_note = f"\n**Contexto adicional del usuario:** {additional_context}"
+    else:
+        context_note = (
+            "\n**Nota:** Si \"sector_name\" parece el nombre de una empresa (no de un sector), "
+            "infiere primero a qué sector o actividad pertenece esa empresa y luego mapea ese sector a CNAE."
+        )
+
+    # Prompt para clasificación CNAE (sector o empresa → sector → CNAE)
     prompt = f"""Eres un experto en clasificación industrial CNAE 2009 (España).
 
 TU TAREA:
-Mapear el sector "{sector_name}" a uno o más códigos CNAE 2009 relevantes.
+El usuario ha proporcionado: "{sector_name}"
+Puede ser el nombre de un SECTOR (ej. "Mantenimiento de ascensores") o el nombre de una EMPRESA (ej. "Tecnotrash", "Bodegas Martínez").
+{context_note}
 
-{f"**Contexto adicional:** {additional_context}" if additional_context else ""}
+**Si es una empresa:** Primero identifica el sector o actividad principal a la que se dedica esa empresa. Luego mapea ese sector a códigos CNAE 2009.
+**Si es un sector:** Mapea directamente el sector a códigos CNAE 2009 relevantes.
 
 ## INSTRUCCIONES:
 
-1. Identifica el código CNAE PRIMARIO más relevante para este sector.
+1. Identifica el código CNAE PRIMARIO más relevante para el sector (inferido o dado).
 2. Si el sector es amplio, identifica también códigos CNAE SECUNDARIOS relacionados.
 3. Los códigos CNAE tienen formato de 4 dígitos (ej. "4322", "4321").
 4. Prioriza códigos que representen actividades B2B, no B2C.

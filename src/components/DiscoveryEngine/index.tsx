@@ -2,6 +2,7 @@ import { useState, useCallback } from "react";
 import { ConfigPanel } from "./ConfigPanel";
 import { ChatPanel } from "./ChatPanel";
 import { ReportViewer } from "./ReportViewer";
+export { DiscoverySettings } from "./DiscoverySettings";
 import {
   DiscoveryConfig,
   ChatMessage,
@@ -9,9 +10,30 @@ import {
   AgentStatus,
   AnalysisReport,
 } from "./types";
-import { generateMockReport, generateMarkdownReport } from "./mockData";
+import { reportToMarkdown, getErrorFallbackMarkdown } from "./reportUtils";
+import type { BackendReport } from "./reportUtils";
 import { useApi, useMutation } from "~/trpc/react";
 import { useToast } from "~/hooks/use-toast";
+
+const DISCOVERY_EMERITA_KEY = "discovery_emerita_thesis";
+const DISCOVERY_PROMPTS_KEY = "discovery_custom_prompts";
+
+function backendReportToAnalysisReport(
+  backendReport: BackendReport,
+  sectorLabel: string
+): AnalysisReport {
+  const meta = backendReport.meta ?? {};
+  const v = (meta.verdict ?? "ÁMBAR").toUpperCase();
+  const verdict: AnalysisReport["verdict"] =
+    v === "VERDE" || v === "GREEN" ? "green" : v === "ROJO" || v === "RED" ? "red" : "amber";
+  return {
+    sector: meta.sector_name ?? sectorLabel,
+    verdict,
+    ebitdaMargin: "",
+    grossMargin: "",
+    targetCompanies: [],
+  };
+}
 
 const initialAgents: AgentStatus[] = [
   { name: "CNAE Mapping Agent", status: "pending", icon: "🗂️" },
@@ -103,70 +125,81 @@ export function DiscoveryEngine() {
           }))
         );
 
-        // Paso 3: Generar reporte
+        // Paso 3: Generar reporte (con Manifiesto y prompts desde Ajustes si existen)
+        let emeritaThesis: Record<string, unknown> | undefined;
+        let customPrompts: Record<string, unknown> | undefined;
+        try {
+          const stored = localStorage.getItem(DISCOVERY_EMERITA_KEY);
+          if (stored) emeritaThesis = JSON.parse(stored) as Record<string, unknown>;
+        } catch {
+          /* ignore */
+        }
+        try {
+          const stored = localStorage.getItem(DISCOVERY_PROMPTS_KEY);
+          if (stored) customPrompts = JSON.parse(stored) as Record<string, unknown>;
+        } catch {
+          /* ignore */
+        }
+
         const reportResult = await generateReportMutation.mutateAsync({
           sectorName: newConfig.sector,
           cnaeCodes,
           researchData: researchResult.research_data,
+          additionalContext: newConfig.context || undefined,
+          emeritaThesis,
+          customPrompts,
         });
 
         setAgents((prev) =>
           prev.map((agent) => ({ ...agent, status: "complete" }))
         );
 
-        // Convertir reporte del backend al formato esperado
-        const backendReport = reportResult.report;
-        const analysisReport: AnalysisReport = {
-          sector: newConfig.sector,
-          verdict: "green", // Se puede extraer del reporte
-          ebitdaMargin: "18.5%", // Se puede extraer del reporte
-          grossMargin: "42%", // Se puede extraer del reporte
-          targetCompanies: [], // Se puede extraer del reporte
-        };
-
-        // Generar markdown del reporte
-        const reportMarkdown = generateMarkdownReport(
-          newConfig.sector,
-          analysisReport
+        const backendReport = reportResult.report as BackendReport;
+        const reportMarkdown = reportToMarkdown(backendReport);
+        const analysisReport = backendReportToAnalysisReport(
+          backendReport,
+          newConfig.sector
         );
 
         setReport(analysisReport);
         setMarkdown(reportMarkdown);
         setAnalysisStatus("complete");
 
-        // Añadir mensaje inicial del asistente
+        const verdictText =
+          analysisReport.verdict === "green"
+            ? "positivo ✓"
+            : analysisReport.verdict === "amber"
+              ? "moderado ⚠️"
+              : "con precaución ⚠️";
         setMessages([
           {
             id: "1",
             role: "assistant",
-            content: `He completado el análisis del sector "${newConfig.sector}". El veredicto es positivo ✓. ¿En qué aspecto te gustaría profundizar?`,
+            content: `He completado el análisis de "${analysisReport.sector}". El veredicto es ${verdictText}. ¿En qué aspecto te gustaría profundizar?`,
             timestamp: new Date(),
           },
         ]);
       } catch (error) {
         console.error("Error en análisis:", error);
-        // En caso de error, usar datos mock
-        const mockReport = generateMockReport(newConfig.sector);
-        const mockMarkdown = generateMarkdownReport(
-          newConfig.sector,
-          mockReport
+        toast({
+          title: "Error en el análisis",
+          description:
+            error instanceof Error ? error.message : "No se pudo completar el análisis. Vuelve a intentarlo.",
+          variant: "destructive",
+        });
+        setMarkdown(getErrorFallbackMarkdown(newConfig.sector));
+        setReport(
+          backendReportToAnalysisReport(
+            { meta: { sector_name: newConfig.sector, verdict: "ÁMBAR" } },
+            newConfig.sector
+          )
         );
-
-        setReport(mockReport);
-        setMarkdown(mockMarkdown);
         setAnalysisStatus("complete");
-
         setMessages([
           {
             id: "1",
             role: "assistant",
-            content: `He completado el análisis del sector "${newConfig.sector}". El veredicto es ${
-              mockReport.verdict === "green"
-                ? "positivo ✓"
-                : mockReport.verdict === "amber"
-                ? "moderado ⚠️"
-                : "con precaución ⚠️"
-            }. ¿En qué aspecto te gustaría profundizar?`,
+            content: `No se pudo completar el análisis de "${newConfig.sector}". Revisa el informe a la derecha para más detalles o inténtalo de nuevo.`,
             timestamp: new Date(),
           },
         ]);
