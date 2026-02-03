@@ -1,0 +1,358 @@
+=== Página 1 ===
+R O A D M A P  D E S A R R O L L O
+🏗  F A S E  1 :  D a t a  E n g i n e  &  A d v a n c e d  G r i d  
+( E s p e c i f i c a c i ó n  T é c n i c a )
+Objetiv o del Spr int:  Construir el gest or de pr o y ect os, el mot or de ingest a de dat os  
+SABI y la int er f az de t abla int eractiv a Gr id) que per mit a or ganizar , personalizar y  
+mo v er dat os sin int er v ención de IA t oda vía.
+St ack:  Py thon 3 . 10, Str e amlit, Pandas, AgGr id (str e amlit -aggr id).
+1 .  A R Q U I T E C T U R A  D E  D A T O S  ( B A C K E N D )
+Para cumplir el r equisit o de "Mo v er f ilas entr e t ablas "  de f or ma eficient e, no  
+usar emos ar chiv os sep arados. Usar emos un Mast er Dat aF r ame  con una columna  
+de contr ol.
+1 . 1  E s t r u c t u r a  d e  A r c h i v o s
+El sist ema debe gestionar los dat os loc alment e en est a estructura:
+Plaint e x t
+/ p r o j e c t s _ d a t a
+    / S e c t o r _ V i t i v i n i c o l a _ 2 0 2 5 /
+        ├ ─ ─  m a s t e r _ d a t a . p a r q u e t    #   B a s e  d e  D a t o s :  T o d a s  l a s  e m p r e s a s  +  c o l u m n a s  c u s t o m )
+        └ ─ ─  s c h e m a _ c o n f i g . j s o n     #   M e t a d a t o s :  D e f i n i c i ó n  d e  v i s t a s ,  e t i q u e t a s  y  o p c i o n e s )
+1 . 2  E s q u e m a  d e l  m a s t e r _ d a t a . p a r q u e t
+Al c ar gar el Ex cel de SABI, el b ack end debe nor malizar lo y añadir columnas de  
+sist ema:
+Columna Tipo Or igen Descr ipción
+_ u i d str ing Sist emaID único UUID p ara gestionar
+mo vimient os.
+_ l i s t _ i d str ing Sist emaIndic a en qué t abla est á ( i n b o x ,
+s h o r t l i s t , t r a s h ).
+n a m e str ing SABI Nombr e de la empr esa.
+RO ADMAP DESARROLL O
+1
+
+=== Página 2 ===
+r e v e n u e flo at SABI V ent as nor malizadas.
+e b i t d a flo at SABI EBITD A nor malizado.
+. . . ... SABI R est o de columnas or iginales.
+[ T a g ]  E s t a d o str ing Cust omColumna cr e ada por usuar io
+(inicialment e v acía).
+1 . 3  E s q u e m a  d e l  s c h e m a _ c o n f i g . j s o n
+Contr ola la configuración de la UI.
+JSON
+{
+  " l i s t s " :  [
+    { " i d " :  " i n b o x " ,  " n a m e " :  " 📥  B a n d e j a  d e  E n t r a d a " } ,
+    { " i d " :  " s h o r t l i s t " ,  " n a m e " :  " ⭐  S h o r t l i s t " } ,
+    { " i d " :  " d i s c a r d e d " ,  " n a m e " :  " 🗑  D e s c a r t a d o s " }
+  ] ,
+  " c u s t o m _ c o l u m n s _ d e f i n i t i o n s " :  {
+    " s t a t u s " :  {
+        " t y p e " :  " s i n g l e _ s e l e c t " ,
+        " o p t i o n s " :  [ " N u e v o " ,  " C o n t a c t a d o " ,  " R e u n i ó n " ,  " N D A " ]
+    }
+  }
+}
+2 .  P A N T A L L A  1 :  L A N D I N G  &  P R O Y E C T O S
+F uncionalidad:  Gestión de esp acios de trab ajo.
+ Sideb ar:  Muestra list a de c ar pet as encontradas en / p r o j e c t s _ d a t a .
+ Ár e a Pr incip al:
+"Nue v o Pr o y ect o ":  Input t e x t  Bot ón "Cr e ar" .
+Acción:  Cr e a la c ar pet a y un s c h e m a _ c o n f i g . j s o n  por def ect o.
+"Car gar Pr o y ect o ":  Al seleccionar uno de la sideb ar , c ar ga el 
+m a s t e r _ d a t a . p a r q u e t  en s t . s e s s i o n _ s t a t e [ ' d f _ m a s t e r ' ] .
+3 .  P A N T A L L A  2 :  I N G E S T A  ( U P L O A D E R )
+F uncionalidad:  Con v er tir el Ex cel sucio de SABI en el f or mat o Par quet limpio.
+RO ADMAP DESARROLL O
+2
+
+=== Página 3 ===
+ Component e:  s t . f i l e _ u p l o a d e r  (acept a .xlsx, .csv).
+ Lógic a de Nor malización ETL
+Det ect ar c abeceras. SABI suele usar nombr es lar gos. Mape ar:
+I n g r e s o s  d e  e x p l o t a c i ó n . . .  → r e v e n u e
+R e s u l t a d o  d e l  E j e r c i c i o . . .  → n e t _ i n c o m e
+Generar _ u i d  p ara c ada fila.
+Asignar _ l i s t _ i d  =  ' i n b o x '  a t odas las filas.
+ P ersist encia:  Guar dar inmediat ament e como m a s t e r _ d a t a . p a r q u e t .
+4 .  P A N T A L L A  3 :  T H E  A D V A N C E D  G R I D  ( N Ú C L E O )
+Est a es la p ar t e cr ític a. La UI debe r ender izar una vist a f il tr ada  del Mast er Dat a  
+según la pest aña seleccionada.
+4 . 1  N a v e g a c i ó n  ( T a b s )
+R ender izar pest añas super ior es it erando sobr e s c h e m a _ c o n f i g [ ' l i s t s ' ] .
+Al hacer clic en "Shor tlist" , fil trar el dat aframe:
+df _ vie w = st.session_st at e[' df _ mast er'][ st.session_st at e[' df _ mast er']['_ list_ id']  
+== 'shor tlist' ]
+4 . 2  C o n f i g u r a c i ó n  d e  A g G r i d  ( C ó d i g o  C r í t i c o )
+Para per mitir mo v er columnas,  ocul t ar las y seleccionar f ilas , usar emos est a  
+configuración específic a:
+Py thon
+f r o m  s t _ a g g r i d  i m p o r t  A g G r i d ,  G r i d O p t i o n s B u i l d e r ,  G r i d U p d a t e M o d e
+d e f  r e n d e r _ g r i d ( d f _ v i e w ,  c u s t o m _ d e f s ) :
+    g b    G r i d O p t i o n s B u i l d e r . f r o m _ d a t a f r a m e ( d f _ v i e w )
+    
+    #  1 .  H a b i l i t a r  S e l e c c i ó n  y  C h e c k b o x e s
+    g b . c o n f i g u r e _ s e l e c t i o n ( s e l e c t i o n _ m o d e = " m u l t i p l e " ,  u s e _ c h e c k b o x = T r u e )
+    
+    #  2 .  H a b i l i t a r  P a n e l  L a t e r a l   S i d e B a r )  p a r a  m o v e r / o c u l t a r  c o l u m n a s
+    g b . c o n f i g u r e _ s i d e _ b a r ( )  
+RO ADMAP DESARROLL O
+3
+
+=== Página 4 ===
+    
+    #  3 .  C o n f i g u r a r  C o l u m n a s  C u s t o m   E t i q u e t a s )
+    #  S i  d e t e c t a m o s  u n a  c o l u m n a  d e f i n i d a  c o m o  " s i n g l e _ s e l e c t "  e n  e l  J S O N
+    f o r  c o l _ n a m e ,  c o n f i g  i n  c u s t o m _ d e f s . i t e m s ( ) :
+        i f  c o n f i g [ ' t y p e ' ]  = =  ' s i n g l e _ s e l e c t ' :
+            g b . c o n f i g u r e _ c o l u m n (
+                c o l _ n a m e ,
+                e d i t a b l e = T r u e ,
+                c e l l E d i t o r = ' a g S e l e c t C e l l E d i t o r ' ,
+                c e l l E d i t o r P a r a m s = { ' v a l u e s ' :  c o n f i g [ ' o p t i o n s ' ] }
+            )
+    
+    #  4 .  O c u l t a r  c o l u m n a s  d e  s i s t e m a
+    g b . c o n f i g u r e _ c o l u m n ( " _ u i d " ,  h i d e = T r u e )
+    g b . c o n f i g u r e _ c o l u m n ( " _ l i s t _ i d " ,  h i d e = T r u e )
+    g r i d O p t i o n s  =  g b . b u i l d ( )
+    
+    r e s p o n s e    A g G r i d (
+        d f _ v i e w ,
+        g r i d O p t i o n s = g r i d O p t i o n s ,
+        e n a b l e _ e n t e r p r i s e _ m o d u l e s = T r u e ,  #  N e c e s a r i o  p a r a  S i d e B a r  c o m p l e t a
+        u p d a t e _ m o d e = G r i d U p d a t e M o d e . M O D E L _ C H A N G E D
+    )
+    r e t u r n  r e s p o n s e
+5 .  I N T E R A C C I O N E S :  A Ñ A D I R  C O L U M N A S  Y  M O V E R  
+F I L A S
+5 . 1  A ñ a d i r  N u e v a  C o l u m n a  ( M o d a l )
+Bot ón en T oolb ar    C o l u m n a ] . Abr e un s t . f o r m :
+Input:  Nombr e ( ej. "Pr ior idad").
+R adio:  Tipo ("T e x t o Libr e " vs "Etiquet a").
+Si es Etiquet a:  Input t e x t p ara opciones (" Al t a,Media,Baja").
+A cción Back end:
+ Añadir columna al d f _ m a s t e r  llena con N o n e  ( o v alor por def ect o ).
+ Si es Etiquet a, actualizar s c h e m a _ c o n f i g . j s o n  con las opciones.
+ Guar dar a disco y r ec ar gar ( s t . r e r u n ).
+5 . 2  M o v e r  F i l a s  ( A c t i o n  B a r )
+RO ADMAP DESARROLL O
+4
+
+=== Página 5 ===
+Si el usuar io selecciona filas en el Gr id, ap ar ece una b ar ra flot ant e deb ajo:
+UI  s t . c o n t a i n e r  condicional (si l e n ( s e l e c t i o n )    0 ).
+Dr opdo wn:  "Mo v er a... " List a de t ablas disponibles: Inbo x, Shor tlist, T rash).
+Bot ón:  "Confir mar Mo vimient o " .
+Lógic a de Mo vimient o:
+Py thon
+d e f  m o v e _ r o w s ( s e l e c t e d _ u i d s ,  t a r g e t _ l i s t _ i d ) :
+    #  C a r g a m o s  e l  m a e s t r o
+    d f  =  s t . s e s s i o n _ s t a t e [ ' d f _ m a s t e r ' ]
+    
+    #  A c t u a l i z a m o s  s o l o  l a  c o l u m n a  d e  c o n t r o l  _ l i s t _ i d
+    d f . l o c [ d f [ ' _ u i d ' ] . i s i n ( s e l e c t e d _ u i d s ) ,  ' _ l i s t _ i d ' ]  =  t a r g e t _ l i s t _ i d
+    
+    #  G u a r d a m o s  y  r e c a r g a m o s
+    s a v e _ p a r q u e t ( d f )
+    s t . s e s s i o n _ s t a t e [ ' d f _ m a s t e r ' ]  =  d f
+    s t . r e r u n ( )
+6 .  C R E A C I Ó N  D E  N U E V A S  T A B L A S  ( L I S T A S )
+Bot ón    N u e v a  L i s t a ]  al lado de los T abs.
+A cción:  Añade una entrada a s c h e m a _ c o n f i g [ ' l i s t s ' ]  ( ej. { " i d " :  " w a t c h l i s t " ,  " n a m e " :  " 👀  
+W a t c h l i s t " } ).
+R esul t ado:  Ap ar ece una nue v a pest aña v acía. El usuar io ahora puede  
+seleccionar filas de "Inbo x" y mo v er las a "W at chlist" .
+R E S U M E N  D E  E N T R E G A B L E S  F A S E  1
+ d a t a _ m a n a g e r . p y  F unciones l o a d _ p r o j e c t , s a v e _ p r o j e c t , n o r m a l i z e _ s a b i .
+ a p p . p y :
+Sideb ar de gestión de pr o y ect os.
+Lógic a de T abs Inbo x/Shor tlist...).
+Lógic a de "Mo v er Filas" (actualizar _ l i s t _ i d ).
+RO ADMAP DESARROLL O
+5
+
+=== Página 6 ===
+ Component e A gGr id  Configurado con s i d e B a r = T r u e  p ara per mitir al usuar io  
+ocul t ar /mostrar cualquier columna del Ex cel or iginal.
+🎫  T I C K E T - 0 1 :  C o n f i g u r a c i ó n  d e l  P r o y e c t o  y  D a t a  M a n a g e r  
+( B a c k e n d )
+Tipo:  Back end / Cor e
+Pr ior idad:  Al t a
+Descr ipción:
+Cr e ar la estructura b ase del r eposit or io y la lógic a de persist encia de dat os.  
+Necesit amos una clase o módulo que gestione la lectura y escr itura de los  
+ar chiv os Par quet y JSON de configuración. No usar emos b ase de dat os SQL, sino  
+sist ema de ar chiv os loc al.
+R equer imient os T écnicos:
+ Cr e ar estructura de dir ect or ios: / p r o j e c t s _ d a t a / { p r o j e c t _ i d } / .
+ Implement ar d a t a _ m a n a g e r . p y  con las siguient es funciones:
+c r e a t e _ p r o j e c t ( n a m e )  Cr e a la c ar pet a y un s c h e m a _ c o n f i g . j s o n  por def ect o.
+s a v e _ m a s t e r _ d a t a ( p r o j e c t _ i d ,  d f )  Guar da el Dat aF rame en f or mat o . p a r q u e t  (usar  
+mot or p y a r r o w ).
+l o a d _ m a s t e r _ d a t a ( p r o j e c t _ i d )  De vuel v e el Dat aF rame le y endo el . p a r q u e t .
+u p d a t e _ s c h e m a ( p r o j e c t _ i d ,  n e w _ c o n f i g )  Guar da c ambios en el JSON de  
+configuración.
+ Definir el s c h e m a _ c o n f i g . j s o n  inicial con la estructura de list as: i n b o x , s h o r t l i s t , 
+d i s c a r d e d .
+Cr it er ios de A cept ación:
+ Se pueden cr e ar c ar pet as de pr o y ect os pr ogramátic ament e.
+RO ADMAP DESARROLL O
+6
+
+=== Página 7 ===
+ Se puede guar dar un Dat aF rame de Pandas y r ecuperar lo int act o  
+(mant eniendo tipos de dat os flo at/int/str) usando Par quet.
+🎫  T I C K E T - 0 2 :  I n t e r f a z  d e  G e s t i ó n  d e  P r o y e c t o s  ( L a n d i n g )
+Tipo:  F r ont end / UI
+Pr ior idad:  Al t a
+Descr ipción:
+Implement ar la pr imera p ant alla que v e el usuar io al entrar en la aplic ación  
+( a p p . p y ). Debe per mitir cr e ar un nue v o esp acio de trab ajo o c ar gar uno e xist ent e.
+R equer imient os T écnicos:
+ Sideb ar de Str e amlit:
+List ar c ar pet as e xist ent es en / p r o j e c t s _ d a t a .
+Al hacer clic en uno, c ar gar el p r o j e c t _ i d  en s t . s e s s i o n _ s t a t e .
+ Ár e a Pr incip al Si no ha y pr o y ect o seleccionado ):
+Input T e x t: "Nombr e del Nue v o Pr o y ect o " .
+Bot ón: "Cr e ar" .
+Al cr e ar , debe llamar a d a t a _ m a n a g e r . c r e a t e _ p r o j e c t  y r edir igir a la vist a del  
+pr o y ect o.
+Cr it er ios de A cept ación:
+ El usuar io v e la list a de pr o y ect os guar dados.
+ El usuar io puede cr e ar "Sect or X" y est o genera la c ar pet a cor r espondient e.
+ Al seleccionar un pr o y ect o, la int er f az c ambia p ara mostrar el título del  
+pr o y ect o activ o.
+🎫  T I C K E T - 0 3 :  M o t o r  d e  I n g e s t a  y  N o r m a l i z a c i ó n  S A B I  ( E T L )
+Tipo:  Back end / Dat a Pr ocessing
+Pr ior idad:  Al t a
+Descr ipción:
+Cr e ar la lógic a p ara pr ocesar el Ex cel "sucio " que viene de SABI. Debemos  
+RO ADMAP DESARROLL O
+7
+
+=== Página 8 ===
+r enombrar columnas complejas a nombr es int er nos simples y añadir  
+identific ador es de sist ema.
+R equer imient os T écnicos:
+ Implement ar función n o r m a l i z e _ s a b i _ d a t a ( u p l o a d e d _ f i l e ) :
+Leer Ex cel/CSV con Pandas.
+R enombr ado Mapping):
+N o m b r e  → n a m e
+D i r e c c i ó n  w e b  → w e b s i t e
+C ó d i g o  N I F  → n i f
+I n g r e s o s  d e  e x p l o t a c i ó n . . .  → r e v e n u e
+E B I T D A . . .  → e b i t d a
+R e s u l t a d o  d e l  E j e r c i c i o . . .  → n e t _ i n c o m e
+L o c a l i d a d  → c i t y
+D e s c r i p c i ó n  a c t i v i d a d  → d e s c r i p t i o n
+Columnas de Sist ema:
+Generar _ u i d  UUID único p ara c ada fila.
+Generar _ l i s t _ i d  V alor por def ect o ' i n b o x ' .
+ Int egrar en UI Añadir s t . f i l e _ u p l o a d e r  en la p ant alla pr incip al si el pr o y ect o est á  
+v acío.
+Cr it er ios de A cept ación:
+ El sist ema acept a un ar chiv o . x l s x  de SABI r e al.
+ El Dat aF rame r esul t ant e tiene las columnas r enombradas cor r ect ament e ( ej. 
+e b i t d a  en lugar de la frase lar ga).
+ Cada fila tiene un _ u i d  único.
+ El ar chiv o se guar da aut omátic ament e como m a s t e r _ d a t a . p a r q u e t  tras la subida.
+🎫  T I C K E T - 0 4 :  I m p l e m e n t a c i ó n  d e  A g G r i d  B á s i c o  y  S i d e b a r
+RO ADMAP DESARROLL O
+8
+
+=== Página 9 ===
+Tipo:  F r ont end / Gr id
+Pr ior idad:  Cr ític a
+Descr ipción:
+R ender izar la t abla pr incip al usando s t _ a g g r i d . Debe ser c ap az de manejar miles de  
+filas sin congelar el na v egador y per mitir la manipulación de columnas.
+R equer imient os T écnicos:
+ Configurar G r i d O p t i o n s B u i l d e r :
+p a g i n a t i o n = T r u e , p a g i n a t i o n P a g e S i z e = 5 0 .
+r o w S e l e c t i o n = ' m u l t i p l e '  ( con checkbo x es).
+s i d e B a r = T r u e  Habilit ar p anel lat eral nativ o de AgGr id p ara ocul t ar /mostrar  
+columnas).
+ Conf igur ación de Columnas:
+n a m e  Pinned Lef t Fija a la iz quier da).
+r e v e n u e , e b i t d a  F or mat o numér ico comp act ado ( ej. usando v a l u e F o r m a t t e r  JS.
+Ocul t ar columnas de sist ema ( _ u i d , _ l i s t _ i d ) por def ect o ( h i d e = T r u e ).
+ R ender izar el Gr id p asando el Dat aF rame del pr o y ect o activ o.
+Cr it er ios de A cept ación:
+ La t abla c ar ga los dat os del Par quet.
+ Se pueden seleccionar filas con checkbo x es.
+ Exist e un p anel lat eral donde el usuar io puede ar rastrar columnas p ara  
+r eor denar las u ocul t ar las.
+ Los númer os se v en f or mat e ados (no 1 5 0 0 0 0 0  sino 1 . 5 M ).
+🎫  T I C K E T - 0 5 :  N a v e g a c i ó n  p o r  P e s t a ñ a s  ( F i l t r a d o  d e  V i s t a s )
+Tipo:  F r ont end / Logic
+Pr ior idad:  Media
+Descr ipción:
+Implement ar la lógic a p ara v er dif er ent es "list as" Inbo x, Shor tlist, Desc ar t ados)  
+RO ADMAP DESARROLL O
+9
+
+=== Página 10 ===
+usando pest añas, sin duplic ar dat os.
+R equer imient os T écnicos:
+ Leer las list as definidas en s c h e m a _ c o n f i g . j s o n .
+ Cr e ar T abs en Str e amlit ( s t . t a b s ) it erando sobr e esas list as.
+ Lógic a de Fil tr ado:
+Cuando el usuar io est á en el T ab "Shor tlist" , fil trar el Dat aF rame maestr o  
+ant es de p asar lo al AgGr id:
+d f _ v i e w  =  d f _ m a s t e r [ d f _ m a s t e r [ ' _ l i s t _ i d ' ]  = =  ' s h o r t l i s t ' ]
+Cr it er ios de A cept ación:
+ Al c ambiar de pest aña, la t abla muestra solo las empr esas cor r espondient es a  
+esa list a.
+ Las empr esas r ecién subidas ap ar ecen solo en "Inbo x" .
+🎫  T I C K E T - 0 6 :  A c c i o n e s  e n  L o t e  ( M o v e r  F i l a s )
+Tipo:  F ullst ack
+Pr ior idad:  Al t a
+Descr ipción:
+P er mitir al usuar io seleccionar filas y mo v er las a otra list a ( ej. de Inbo x a Shor tlist).
+R equer imient os T écnicos:
+ F r ont end:  Det ect ar selección de filas en AgGr id ( g r i d _ r e s p o n s e [ ' s e l e c t e d _ r o w s ' ] ).
+ UI Flot ant e:  Si ha y selección, mostrar s t . c o n t a i n e r  deb ajo de la t abla con:
+Selectbo x: "Mo v er a... " List a de t ablas disponibles).
+Bot ón: "Confir mar" .
+ Back end Logic:
+F unción m o v e _ r o w s ( u i d s ,  t a r g e t _ l i s t _ i d ) .
+Debe c ar gar el m a s t e r _ d a t a . p a r q u e t .
+Actualizar la columna _ l i s t _ i d  p ara los UIDs coincident es.
+RO ADMAP DESARROLL O
+10
+
+=== Página 11 ===
+Guar dar Par quet y f orzar s t . r e r u n ( ) .
+Cr it er ios de A cept ación:
+ Seleccionar 3 empr esas en "Inbo x" , mo v er las a "Shor tlist" .
+ Al ir a la pest aña "Shor tlist" , las empr esas est án ahí.
+ Al v ol v er a "Inbo x" , y a no est án.
+🎫  T I C K E T - 0 7 :  G e s t i ó n  d e  C o l u m n a s  P e r s o n a l i z a d a s  ( M a n u a l e s )
+Tipo:  F ullst ack
+Pr ior idad:  Media
+Descr ipción:
+P er mitir al usuar io añadir nue v as columnas T ags o T e x t o ) que se persist an en el  
+esquema y en el dat aframe.
+R equer imient os T écnicos:
+ UI Modal:  Bot ón    C o l u m n a ]  que abr e un f or mular io.
+Input s: Nombr e columna, Tipo T e x t o/Etiquet a), Opciones (si es etiquet a).
+ Back end:
+Actualizar m a s t e r _ d a t a . p a r q u e t  añadiendo la columna nue v a (inicializada a N o n e  
+o " " ).
+Actualizar s c h e m a _ c o n f i g . j s o n  con la definición de la columna (necesar io p ara  
+saber si es un dr opdo wn).
+ A gGr id Updat e:
+Si la columna es tipo "Etiquet a" , configurar c e l l E d i t o r = ' a g S e l e c t C e l l E d i t o r '  con las  
+opciones guar dadas en el JSON.
+Hacer la columna e d i t a b l e = T r u e .
+Cr it er ios de A cept ación:
+ Usuar io cr e a columna "Est ado " con opciones "P endient e, Cont act ado " .
+ La columna ap ar ece en la t abla.
+RO ADMAP DESARROLL O
+11
+
+=== Página 12 ===
+ El usuar io puede hacer doble clic en una celda de "Est ado " y elegir  
+"Cont act ado " de un dr opdo wn.
+ Al r ec ar gar la p ágina, el v alor "Cont act ado " persist e.
+RO ADMAP DESARROLL O
+12

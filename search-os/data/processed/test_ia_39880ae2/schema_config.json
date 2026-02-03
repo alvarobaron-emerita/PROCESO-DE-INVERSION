@@ -1,0 +1,84 @@
+{
+  "lists": [
+    {
+      "id": "inbox",
+      "name": "📥 Bandeja de Entrada"
+    },
+    {
+      "id": "shortlist",
+      "name": "⭐ Shortlist"
+    },
+    {
+      "id": "discarded",
+      "name": "🗑 Descartados"
+    }
+  ],
+  "custom_columns_definitions": {
+    "Riesgo Regulatorio": {
+      "type": "ai_score",
+      "field": "riesgo_regulatorio",
+      "config": {
+        "user_prompt": "Analiza el sector y actividad de la empresa. Determina el riesgo regulatorio \n     (normativas, cambios legales, dependencia de licencias). Devuelve un score de 0-10 \n     donde 10 es riesgo muy alto (sectores altamente regulados, dependencia de licencias, \n     cambios normativos frecuentes).",
+        "model_selected": "long_context",
+        "smart_context": true
+      }
+    },
+    "IA": {
+      "type": "ai_score",
+      "field": "ia",
+      "config": {
+        "user_prompt": "Analiza el sector y actividad de la empresa. Determina el riesgo regulatorio \n     (normativas, cambios legales, dependencia de licencias). Devuelve un score de 0-10 \n     donde 10 es riesgo muy alto.",
+        "model_selected": "instant",
+        "smart_context": true
+      }
+    },
+    "IA2": {
+      "type": "ai_score",
+      "field": "ia2",
+      "config": {
+        "user_prompt": "Analiza el sector y actividad de la empresa. Determina el riesgo regulatorio \n     (normativas, cambios legales, dependencia de licencias). Devuelve un score de 0-10 \n     donde 10 es riesgo muy alto.",
+        "model_selected": "long_context",
+        "smart_context": true
+      }
+    },
+    "Nueva Col IA": {
+      "type": "ai_score",
+      "field": "nueva_col_ia",
+      "config": {
+        "user_prompt": "Analiza el sector y actividad de la empresa. Determina el riesgo regulatorio \n     (normativas, cambios legales, dependencia de licencias). Devuelve un score de 0-10 \n     donde 10 es riesgo muy alto (sectores altamente regulados, dependencia de licencias, \n     cambios normativos frecuentes).",
+        "model_selected": "long_context",
+        "smart_context": false
+      }
+    },
+    "Nueva columna": {
+      "type": "ai_score",
+      "field": "nueva_columna",
+      "config": {
+        "user_prompt": "Test",
+        "model_selected": "long_context",
+        "smart_context": false
+      }
+    },
+    "TEST NUEVA IA TEST": {
+      "type": "ai_score",
+      "field": "test_nueva_ia_test",
+      "config": {
+        "user_prompt": "TEST",
+        "model_selected": "long_context",
+        "smart_context": false
+      }
+    },
+    "ftygkh": {
+      "type": "ai_score",
+      "field": "ftygkh",
+      "config": {
+        "user_prompt": "TEST",
+        "model_selected": "long_context",
+        "smart_context": false
+      }
+    },
+    "Formula": {
+      "type": "text"
+    }
+  }
+}

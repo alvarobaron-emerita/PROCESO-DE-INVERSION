@@ -1,0 +1,40 @@
+{
+  "lists": [
+    {
+      "id": "inbox",
+      "name": "📥 Bandeja de Entrada"
+    },
+    {
+      "id": "shortlist",
+      "name": "⭐ Shortlist"
+    },
+    {
+      "id": "discarded",
+      "name": "🗑 Descartados"
+    }
+  ],
+  "custom_views": [
+    {
+      "id": "custom_1769559244244",
+      "name": "test",
+      "icon": "📋",
+      "visibleColumns": [
+        "Mark",
+        "Nombre",
+        "Código NIF",
+        "Localidad",
+        "País",
+        "Descripción actividad",
+        "Ultimo año disponible",
+        "Número de participadas",
+        "Literal código CNAE 2009 primario",
+        "Código primario CNAE 2009"
+      ],
+      "rowIds": [
+        "290f2f85-f6fd-4815-bca7-2727bcfb6f70"
+      ],
+      "isCustom": true
+    }
+  ],
+  "custom_columns_definitions": {}
+}

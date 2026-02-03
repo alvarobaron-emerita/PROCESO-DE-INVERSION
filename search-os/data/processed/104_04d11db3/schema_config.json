@@ -1,0 +1,18 @@
+{
+  "lists": [
+    {
+      "id": "inbox",
+      "name": "📥 Bandeja de Entrada"
+    },
+    {
+      "id": "shortlist",
+      "name": "⭐ Shortlist"
+    },
+    {
+      "id": "discarded",
+      "name": "🗑 Descartados"
+    }
+  ],
+  "custom_views": [],
+  "custom_columns_definitions": {}
+}

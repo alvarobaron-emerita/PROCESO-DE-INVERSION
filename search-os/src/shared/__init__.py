@@ -1,0 +1,3 @@
+"""
+Código compartido entre herramientas
+"""

@@ -1,0 +1,27 @@
+{
+  "lists": [
+    {
+      "id": "inbox",
+      "name": "📥 Bandeja de Entrada"
+    },
+    {
+      "id": "shortlist",
+      "name": "⭐ Shortlist"
+    },
+    {
+      "id": "discarded",
+      "name": "🗑 Descartados"
+    }
+  ],
+  "custom_columns_definitions": {
+    "Test IA": {
+      "type": "ai_score",
+      "field": "test_ia",
+      "config": {
+        "user_prompt": "*ROL:**\nSommelier Experto y Crítico de Vinos Senior.\n*INPUT (DATOS DE LA EMPRESA):**\nAnaliza los siguientes datos extraídos:\n\"\"\"\n\"\"\"\n*TAREA:**\nTu objetivo es evaluar la calidad enológica y el prestigio de marca basándote en el conocimiento crítico (Parker, Peñín, Vivino) y devolver ÚNICAMENTE un objeto JSON.\n*INSTRUCCIONES DE SCORING:** *1-3 (Descarte/Baja):** Vinos a granel, marcas blancas o vino de mesa. Sin puntos Parker/Peñín. Precios <3€.\n *4-6 (Masivo/Retail):** Vinos de supermercado. Sin presencia Parker o puntos <88. Vivino <3.6.\n *7-8 (Premium):** Reputación sólida. Parker recurrente 90-94 pts. Precios 15€-50€.\n *9-10 (Icono/Culto):** Vinos de clase mundial. Referencias top >95 Parker. Precios >60€.\n*FORMATO DE RESPUESTA (JSON ESTRICTO):**\nResponde solo con el objeto JSON. No uses markdown (\njson), ni introducciones.\n\n{\"Scoring\": 0, \"Explicacion\": \"Menciona obligatoriamente presencia/ausencia de Puntos Parker y posicionamiento. Máximo 2 frases.\"\n}",
+        "model_selected": "long_context",
+        "smart_context": false
+      }
+    }
+  }
+}
