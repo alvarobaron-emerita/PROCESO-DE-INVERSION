@@ -12,7 +12,7 @@ const projectRoot = path.resolve(process.cwd());
 
 export default createApp({
   server: {
-    preset: "node-server", // change to 'netlify' or 'bun' or anyof the supported presets for nitro (nitro.unjs.io)
+    preset: "vercel",
     experimental: {
       asyncContext: true,
     },
