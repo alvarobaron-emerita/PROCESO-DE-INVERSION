@@ -8,14 +8,16 @@ import {
   DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
 import { ViewInfo } from "./types";
-import { ArrowRight, Copy, Trash2, X } from "lucide-react";
+import { ArrowRight, Copy, Trash2, X, Sparkles } from "lucide-react";
 
 interface FloatingSelectionBarProps {
   selectedCount: number;
   views: ViewInfo[];
   currentViewId: string;
+  aiColumns: string[];
   onMove: (targetViewId: string) => void;
   onCopy: (targetViewId: string) => void;
+  onExecuteAI: (columnName: string) => void;
   onDelete: () => void;
   onClearSelection: () => void;
 }
@@ -24,8 +26,10 @@ export function FloatingSelectionBar({
   selectedCount,
   views,
   currentViewId,
+  aiColumns,
   onMove,
   onCopy,
+  onExecuteAI,
   onDelete,
   onClearSelection,
 }: FloatingSelectionBarProps) {
@@ -88,6 +92,37 @@ export function FloatingSelectionBar({
               availableViews.map((view) => (
                 <DropdownMenuItem key={view.id} onClick={() => onCopy(view.id)}>
                   {view.name}
+                </DropdownMenuItem>
+              ))
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 gap-1.5 text-zinc-100 hover:bg-zinc-700 hover:text-white"
+            >
+              <Sparkles className="h-4 w-4" />
+              Ejecutar IA
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="center" className="min-w-[200px]">
+            <DropdownMenuLabel>Columna IA</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            {aiColumns.length === 0 ? (
+              <DropdownMenuItem disabled>
+                No hay columnas IA. Añade una con el botón Columna.
+              </DropdownMenuItem>
+            ) : (
+              aiColumns.map((col) => (
+                <DropdownMenuItem
+                  key={col}
+                  onClick={() => onExecuteAI(col)}
+                >
+                  {col}
                 </DropdownMenuItem>
               ))
             )}

@@ -7,6 +7,8 @@ import { getFastApiBaseUrl } from "~/lib/api-config";
 interface FileUploadProps {
   projectId: string;
   onUploadSuccess: () => void;
+  /** Si true, añade las filas a los datos existentes en lugar de reemplazarlos */
+  appendMode?: boolean;
 }
 
 interface UploadResponse {
@@ -15,7 +17,7 @@ interface UploadResponse {
   columnCount: number;
 }
 
-export function FileUpload({ projectId, onUploadSuccess }: FileUploadProps) {
+export function FileUpload({ projectId, onUploadSuccess, appendMode = false }: FileUploadProps) {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -24,14 +26,14 @@ export function FileUpload({ projectId, onUploadSuccess }: FileUploadProps) {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    const validExtensions = [".xlsx", ".xls", ".csv"];
+    const validExtensions = [".xlsx", ".xls", ".csv", ".txt"];
     const fileExtension = "." + file.name.split(".").pop()?.toLowerCase();
 
     if (!validExtensions.includes(fileExtension)) {
       toast({
         title: "Formato no válido",
         description:
-          "Solo se permiten archivos Excel (.xlsx, .xls) o CSV (.csv)",
+          "Solo se permiten archivos Excel (.xlsx, .xls), CSV (.csv) o TXT (.txt)",
         variant: "destructive",
       });
       return;
@@ -46,7 +48,7 @@ export function FileUpload({ projectId, onUploadSuccess }: FileUploadProps) {
 
       // Usar URL absoluta siempre: evitar que quede vacía y la petición vaya a localhost:3000
       const baseUrl = getFastApiBaseUrl().trim() || "http://localhost:8000";
-      const uploadUrl = `${baseUrl}/api/tool2/projects/${projectId}/upload`;
+      const uploadUrl = `${baseUrl}/api/tool2/projects/${projectId}/upload${appendMode ? "?append=true" : ""}`;
 
       const response = await fetch(uploadUrl, {
         method: "POST",
@@ -71,7 +73,9 @@ export function FileUpload({ projectId, onUploadSuccess }: FileUploadProps) {
       const result = (await response.json()) as UploadResponse;
       toast({
         title: "Archivo cargado",
-        description: `${result.rowCount} filas procesadas correctamente`,
+        description: appendMode
+          ? `${result.rowCount} filas añadidas correctamente`
+          : `${result.rowCount} filas procesadas correctamente`,
       });
       onUploadSuccess();
     } catch (error) {
@@ -92,15 +96,18 @@ export function FileUpload({ projectId, onUploadSuccess }: FileUploadProps) {
   return (
     <div className="flex flex-col items-center justify-center p-12 border-2 border-dashed border-muted-foreground/25 rounded-lg bg-muted/50">
       <FileSpreadsheet className="h-16 w-16 text-muted-foreground mb-4" />
-      <h3 className="text-lg font-semibold mb-2">Cargar archivo Excel/CSV</h3>
+      <h3 className="text-lg font-semibold mb-2">
+        {appendMode ? "Añadir archivo" : "Cargar archivo Excel/CSV/TXT"}
+      </h3>
       <p className="text-sm text-muted-foreground mb-6 text-center max-w-md">
-        Sube un archivo de SABI (CSV o Excel) para empezar. El sistema
-        normalizará automáticamente las columnas.
+        {appendMode
+          ? "Sube otro archivo para añadir filas a los datos existentes. Se unirán las columnas automáticamente."
+          : "Sube un archivo de SABI (CSV, Excel o TXT) para empezar. El sistema normalizará automáticamente las columnas."}
       </p>
       <input
         ref={fileInputRef}
         type="file"
-        accept=".xlsx,.xls,.csv"
+        accept=".xlsx,.xls,.csv,.txt"
         onChange={handleFileSelect}
         className="hidden"
       />

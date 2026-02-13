@@ -54,7 +54,10 @@ const iconComponents: Record<string, LucideIcon> = {
   FileText,
 };
 
-// Available icons for view selection
+// Iconos reservados para vistas de sistema (Bandeja de Entrada, Shortlist, Descartados)
+const SYSTEM_VIEW_ICON_IDS = ["Inbox", "Star", "Trash2"];
+
+// Available icons for custom view selection (excluimos los de sistema para no duplicar)
 const availableViewIcons = [
   { id: "Eye", label: "Vista" },
   { id: "Table", label: "Tabla" },
@@ -72,7 +75,7 @@ const availableViewIcons = [
   { id: "Building2", label: "Empresa" },
   { id: "FolderOpen", label: "Carpeta" },
   { id: "FileText", label: "Documento" },
-];
+].filter((icon) => !SYSTEM_VIEW_ICON_IDS.includes(icon.id));
 
 interface NewViewDialogProps {
   open: boolean;

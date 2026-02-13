@@ -6,7 +6,7 @@ import json
 import uuid
 import time
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Sequence
 import pandas as pd
 
 from .config import PROCESSED_DATA_DIR
@@ -33,10 +33,10 @@ DEFAULT_SCHEMA_CONFIG = {
 def _get_default_icon_for_list(list_id: str) -> str:
     """
     Obtiene el icono por defecto para una lista del sistema.
-    
+
     Args:
         list_id: ID de la lista del sistema
-        
+
     Returns:
         Nombre del icono (compatible con lucide-react)
     """
@@ -52,10 +52,10 @@ def _ensure_custom_views_in_schema(schema: Dict) -> Dict:
     """
     Asegura que el schema tenga la clave 'custom_views'.
     Compatibilidad hacia atrás para proyectos existentes.
-    
+
     Args:
         schema: Diccionario de schema
-        
+
     Returns:
         Schema actualizado con custom_views si no existía
     """
@@ -134,6 +134,47 @@ def load_master_data(project_id: str) -> pd.DataFrame:
     return load_parquet(parquet_path)
 
 
+def append_master_data(project_id: str, df_new: pd.DataFrame) -> None:
+    """
+    Añade filas de df_new al DataFrame maestro existente.
+    Si no hay datos existentes, guarda df_new directamente.
+
+    Args:
+        project_id: ID del proyecto
+        df_new: DataFrame con las nuevas filas (ya normalizado con _uid, _list_id)
+
+    Raises:
+        ValueError: Si el proyecto no existe
+    """
+    df_existing = load_master_data(project_id)
+
+    if df_existing.empty:
+        save_master_data(project_id, df_new)
+        return
+
+    # Unión de columnas: todas las columnas de ambos DataFrames
+    all_cols = list(dict.fromkeys(list(df_existing.columns) + list(df_new.columns)))
+
+    # Rellenar columnas faltantes con ''
+    for col in all_cols:
+        if col not in df_existing.columns:
+            df_existing[col] = ''
+        if col not in df_new.columns:
+            df_new[col] = ''
+
+    # Ordenar columnas igual en ambos
+    df_existing = df_existing[all_cols]
+    df_new = df_new[all_cols].copy()
+
+    # Regenerar _uid para las filas nuevas (evitar colisiones)
+    n_new = len(df_new)
+    df_new['_uid'] = [str(uuid.uuid4()) for _ in range(n_new)]
+    df_new['_list_id'] = 'inbox'
+
+    df_combined = pd.concat([df_existing, df_new], ignore_index=True)
+    save_master_data(project_id, df_combined)
+
+
 def update_schema(project_id: str, new_config: Dict) -> None:
     """
     Actualiza el schema_config.json del proyecto.
@@ -186,15 +227,15 @@ def load_schema(project_id: str) -> Dict:
 
     with open(schema_path, 'r', encoding='utf-8') as f:
         schema = json.load(f)
-    
+
     # Compatibilidad hacia atrás: asegurar que custom_views existe
     schema = _ensure_custom_views_in_schema(schema)
-    
+
     # Si se añadió custom_views, guardar el schema actualizado
     if 'custom_views' not in schema or not isinstance(schema.get('custom_views'), list):
         schema['custom_views'] = []
         update_schema(project_id, schema)
-    
+
     return schema
 
 
@@ -396,28 +437,28 @@ def create_custom_view(
 ) -> str:
     """
     Crea una nueva vista personalizada.
-    
+
     Args:
         project_id: ID del proyecto
         name: Nombre de la vista
         icon: Nombre del icono (compatible con lucide-react)
         visible_columns: Lista de IDs de columnas visibles
-        
+
     Returns:
         view_id: ID de la vista creada
-        
+
     Raises:
         ValueError: Si el proyecto no existe
     """
     if not project_exists(project_id):
         raise ValueError(f"Proyecto no encontrado: {project_id}")
-    
+
     schema = load_schema(project_id)
     schema = _ensure_custom_views_in_schema(schema)
-    
+
     # Generar ID único para la vista
     view_id = f"custom_{int(time.time() * 1000)}"
-    
+
     # Crear nueva vista
     new_view = {
         "id": view_id,
@@ -427,69 +468,69 @@ def create_custom_view(
         "rowIds": [],
         "isCustom": True
     }
-    
+
     schema['custom_views'].append(new_view)
     update_schema(project_id, schema)
-    
+
     return view_id
 
 
 def delete_custom_view(project_id: str, view_id: str) -> None:
     """
     Elimina una vista personalizada.
-    
+
     Args:
         project_id: ID del proyecto
         view_id: ID de la vista a eliminar
-        
+
     Raises:
         ValueError: Si el proyecto no existe o la vista no es personalizada
     """
     if not project_exists(project_id):
         raise ValueError(f"Proyecto no encontrado: {project_id}")
-    
+
     # No permitir eliminar vistas del sistema
     system_list_ids = ['inbox', 'shortlist', 'discarded']
     if view_id in system_list_ids:
         raise ValueError(f"No se puede eliminar la vista del sistema: {view_id}")
-    
+
     schema = load_schema(project_id)
     schema = _ensure_custom_views_in_schema(schema)
-    
+
     # Filtrar la vista a eliminar
     original_count = len(schema['custom_views'])
     schema['custom_views'] = [
-        v for v in schema['custom_views'] 
+        v for v in schema['custom_views']
         if v.get('id') != view_id
     ]
-    
+
     if len(schema['custom_views']) == original_count:
         raise ValueError(f"Vista personalizada no encontrada: {view_id}")
-    
+
     update_schema(project_id, schema)
 
 
 def get_all_views(project_id: str) -> List[Dict]:
     """
     Obtiene todas las vistas (sistema + personalizadas) del proyecto.
-    
+
     Args:
         project_id: ID del proyecto
-        
+
     Returns:
         Lista de vistas con formato unificado
-        
+
     Raises:
         ValueError: Si el proyecto no existe
     """
     if not project_exists(project_id):
         raise ValueError(f"Proyecto no encontrado: {project_id}")
-    
+
     schema = load_schema(project_id)
     schema = _ensure_custom_views_in_schema(schema)
-    
+
     views = []
-    
+
     # Añadir vistas del sistema
     system_lists = schema.get('lists', [])
     for list_item in system_lists:
@@ -502,7 +543,7 @@ def get_all_views(project_id: str) -> List[Dict]:
             "isCustom": False,
             "type": "system"
         })
-    
+
     # Añadir vistas personalizadas
     custom_views = schema.get('custom_views', [])
     for view in custom_views:
@@ -517,7 +558,7 @@ def get_all_views(project_id: str) -> List[Dict]:
             "type": "custom"
         }
         views.append(view_dict)
-    
+
     return views
 
 
@@ -530,37 +571,37 @@ def add_rows_to_view(
     Añade filas a una vista.
     Para vistas del sistema, actualiza _list_id en el DataFrame.
     Para vistas personalizadas, actualiza rowIds en el schema.
-    
+
     Args:
         project_id: ID del proyecto
         view_id: ID de la vista
         row_uids: Lista de UIDs de las filas a añadir
-        
+
     Raises:
         ValueError: Si el proyecto no existe o la vista no existe
     """
     if not project_exists(project_id):
         raise ValueError(f"Proyecto no encontrado: {project_id}")
-    
+
     system_list_ids = ['inbox', 'shortlist', 'discarded']
-    
+
     # Si es vista del sistema, actualizar _list_id en el DataFrame
     if view_id in system_list_ids:
         df = load_master_data(project_id)
-        
+
         # Validar que los UIDs existen
         existing_uids = set(df['_uid'].tolist() if '_uid' in df.columns else [])
         valid_uids = [uid for uid in row_uids if uid in existing_uids]
-        
+
         if valid_uids:
             df.loc[df['_uid'].isin(valid_uids), '_list_id'] = view_id
             save_master_data(project_id, df)
         return
-    
+
     # Si es vista personalizada, actualizar rowIds en el schema
     schema = load_schema(project_id)
     schema = _ensure_custom_views_in_schema(schema)
-    
+
     view_found = False
     for view in schema['custom_views']:
         if view.get('id') == view_id:
@@ -569,10 +610,10 @@ def add_rows_to_view(
             view['rowIds'] = list(current_row_ids)
             view_found = True
             break
-    
+
     if not view_found:
         raise ValueError(f"Vista personalizada no encontrada: {view_id}")
-    
+
     update_schema(project_id, schema)
 
 
@@ -584,25 +625,25 @@ def remove_rows_from_view(
     """
     Elimina filas de una vista personalizada.
     No aplica a vistas del sistema (usar add_rows_to_view con otra lista).
-    
+
     Args:
         project_id: ID del proyecto
         view_id: ID de la vista personalizada
         row_uids: Lista de UIDs de las filas a eliminar
-        
+
     Raises:
         ValueError: Si el proyecto no existe, la vista no existe o es del sistema
     """
     if not project_exists(project_id):
         raise ValueError(f"Proyecto no encontrado: {project_id}")
-    
+
     system_list_ids = ['inbox', 'shortlist', 'discarded']
     if view_id in system_list_ids:
         raise ValueError(f"No se puede eliminar filas de una vista del sistema: {view_id}")
-    
+
     schema = load_schema(project_id)
     schema = _ensure_custom_views_in_schema(schema)
-    
+
     view_found = False
     for view in schema['custom_views']:
         if view.get('id') == view_id:
@@ -611,10 +652,10 @@ def remove_rows_from_view(
             view['rowIds'] = list(current_row_ids)
             view_found = True
             break
-    
+
     if not view_found:
         raise ValueError(f"Vista personalizada no encontrada: {view_id}")
-    
+
     update_schema(project_id, schema)
 
 
@@ -624,48 +665,177 @@ def get_view_data(
 ) -> pd.DataFrame:
     """
     Obtiene los datos filtrados para una vista específica.
-    
+
     Args:
         project_id: ID del proyecto
         view_id: ID de la vista
-        
+
     Returns:
         DataFrame filtrado según la vista
-        
+
     Raises:
         ValueError: Si el proyecto no existe
     """
     if not project_exists(project_id):
         raise ValueError(f"Proyecto no encontrado: {project_id}")
-    
+
     df = load_master_data(project_id)
-    
+
     if df.empty:
         return df
-    
+
     system_list_ids = ['inbox', 'shortlist', 'discarded']
-    
+
     # Si es vista del sistema, filtrar por _list_id
     if view_id in system_list_ids:
         if '_list_id' not in df.columns:
             return pd.DataFrame()
         return df[df['_list_id'] == view_id].copy()
-    
+
     # Si es vista personalizada, filtrar por rowIds
     schema = load_schema(project_id)
     schema = _ensure_custom_views_in_schema(schema)
-    
+
     custom_views = schema.get('custom_views', [])
     for view in custom_views:
         if view.get('id') == view_id:
             row_ids = view.get('rowIds', [])
             if not row_ids:
                 return pd.DataFrame()
-            
+
             if '_uid' not in df.columns:
                 return pd.DataFrame()
-            
+
             return df[df['_uid'].isin(row_ids)].copy()
-    
+
     # Vista no encontrada, retornar DataFrame vacío
     return pd.DataFrame()
+
+
+DEFAULT_SEARCHABLE_COLUMNS = [
+    "name",
+    "city",
+    "description",
+    "website",
+    "status",
+    "revenue",
+    "ebitda",
+    "employees",
+]
+
+
+def _prepare_series_for_search(series: pd.Series) -> pd.Series:
+    """
+    Convierte una serie a string minúscula sin NaNs para búsquedas.
+    """
+    return series.fillna("").astype(str).str.strip().str.lower()
+
+
+def _prepare_series_for_filter(series: pd.Series) -> pd.Series:
+    """
+    Convierte una serie a string sin NaNs para comparación exacta.
+    """
+    return series.fillna("").astype(str).str.strip()
+
+
+def query_view_dataframe(
+    project_id: str,
+    view_id: str,
+    *,
+    global_filter: Optional[str] = None,
+    searchable_columns: Optional[Sequence[str]] = None,
+    column_filters: Optional[Dict[str, List[str]]] = None,
+    sort: Optional[Sequence[Dict[str, object]]] = None,
+) -> pd.DataFrame:
+    """
+    Obtiene los datos de una vista aplicando filtros, búsqueda global y ordenación.
+    Devuelve un DataFrame filtrado y ordenado.
+    """
+    df = get_view_data(project_id, view_id)
+
+    if df.empty:
+        return df.copy()
+
+    column_filters = column_filters or {}
+    filtered_df = df.copy()
+
+    # Aplicar filtros por columna (valores exactos)
+    for col, values in column_filters.items():
+        if not values or col not in filtered_df.columns:
+            continue
+        target_values = {str(value).strip() for value in values if value is not None and str(value).strip() != ""}
+        if not target_values:
+            continue
+        series = _prepare_series_for_filter(filtered_df[col])
+        filtered_df = filtered_df[series.isin(target_values)]
+        if filtered_df.empty:
+            return filtered_df
+
+    # Aplicar búsqueda global
+    if global_filter:
+        search_term = global_filter.strip().lower()
+        if search_term:
+            preferred_columns = list(searchable_columns or [])
+            if not preferred_columns:
+                preferred_columns = [
+                    col for col in DEFAULT_SEARCHABLE_COLUMNS if col in filtered_df.columns
+                ]
+            if not preferred_columns:
+                preferred_columns = [
+                    col for col in filtered_df.columns if not col.startswith("_")
+                ][:5]
+
+            mask = pd.Series(False, index=filtered_df.index)
+            for col in preferred_columns:
+                if col not in filtered_df.columns:
+                    continue
+                series = _prepare_series_for_search(filtered_df[col])
+                mask = mask | series.str.contains(search_term, na=False)
+
+            filtered_df = filtered_df[mask]
+            if filtered_df.empty:
+                return filtered_df
+
+    # Aplicar ordenación
+    if sort:
+        valid_sort = [spec for spec in sort if isinstance(spec, dict) and spec.get("id") in filtered_df.columns]
+        if valid_sort:
+            by = [spec["id"] for spec in valid_sort]
+            ascending = [not bool(spec.get("desc", False)) for spec in valid_sort]
+            filtered_df = filtered_df.sort_values(by=by, ascending=ascending, kind="mergesort")
+
+    return filtered_df
+
+
+def get_column_unique_values(
+    project_id: str,
+    view_id: str,
+    column_id: str,
+    *,
+    global_filter: Optional[str] = None,
+    searchable_columns: Optional[Sequence[str]] = None,
+    column_filters: Optional[Dict[str, List[str]]] = None,
+    limit: int = 200,
+) -> List[str]:
+    """
+    Obtiene valores únicos para una columna específica considerando los filtros actuales.
+    """
+    df = query_view_dataframe(
+        project_id,
+        view_id,
+        global_filter=global_filter,
+        searchable_columns=searchable_columns,
+        column_filters=column_filters,
+    )
+
+    if df.empty or column_id not in df.columns:
+        return []
+
+    series = _prepare_series_for_filter(df[column_id])
+    unique_values = pd.unique(series[series != ""])
+    # pd.unique ya mantiene el orden de aparición, pero ordenamos alfabéticamente para UX consistente
+    sorted_values = sorted(unique_values.tolist(), key=lambda value: value.lower())
+
+    if limit and len(sorted_values) > limit:
+        return sorted_values[:limit]
+    return sorted_values

@@ -221,6 +221,52 @@ def consolidate_sabi_hierarchical_data(df: pd.DataFrame) -> pd.DataFrame:
         return df_work
 
 
+def _detect_delimiter(sample: str) -> str:
+    """
+    Detecta el delimitador más probable en un fragmento de texto.
+    Revisa tabulaciones, punto y coma, coma y barra vertical.
+    """
+    candidates = ['\t', ';', ',', '|']
+    counts = {delimiter: sample.count(delimiter) for delimiter in candidates}
+    # Si todos son cero, usar coma por defecto
+    delimiter, max_count = max(counts.items(), key=lambda item: item[1])
+    if max_count == 0:
+        return ','
+    return delimiter
+
+
+def _read_text_table(buffer: io.BytesIO, encoding: str = "utf-8") -> pd.DataFrame:
+    """
+    Lee un archivo de texto tabular detectando automáticamente el delimitador.
+    """
+    # Guardar posición actual para restaurar después
+    buffer.seek(0)
+    raw_bytes = buffer.read()
+
+    # Intentar decodificar con encoding indicado, fallback a latin-1
+    try:
+        text_content = raw_bytes.decode(encoding)
+    except UnicodeDecodeError:
+        text_content = raw_bytes.decode("latin-1")
+
+    # Eliminar bytes nulos que causan error en pd.read_csv
+    text_content = text_content.replace('\x00', '')
+
+    # Detectar delimitador usando las primeras líneas
+    sample = "\n".join(text_content.splitlines()[:10])
+    delimiter = _detect_delimiter(sample)
+
+    buffer.seek(0)
+    df = pd.read_csv(
+        io.StringIO(text_content),
+        sep=delimiter,
+        engine="c",
+        dtype=object,
+    )
+    df = df.fillna('')
+    return df
+
+
 def normalize_sabi_data(uploaded_file: Union[io.BytesIO, Path, str]) -> pd.DataFrame:
     """
     Normaliza datos de SABI al formato interno.
@@ -245,6 +291,9 @@ def normalize_sabi_data(uploaded_file: Union[io.BytesIO, Path, str]) -> pd.DataF
             df = df.fillna('')  # Unificar vacíos como string vacío antes de consolidar
         elif file_extension == 'csv':
             df = pd.read_csv(uploaded_file, encoding='utf-8', sep=',')
+            df = df.fillna('')  # Unificar vacíos como string vacío (igual que Excel)
+        elif file_extension == 'txt':
+            df = _read_text_table(uploaded_file)
         else:
             raise ValueError(f"Formato de archivo no soportado: {file_extension}")
 
@@ -259,6 +308,11 @@ def normalize_sabi_data(uploaded_file: Union[io.BytesIO, Path, str]) -> pd.DataF
             df = df.fillna('')
         elif file_path.suffix.lower() == '.csv':
             df = pd.read_csv(file_path, encoding='utf-8', sep=',')
+            df = df.fillna('')  # Unificar vacíos como string vacío (igual que Excel)
+        elif file_path.suffix.lower() == '.txt':
+            with open(file_path, 'rb') as f:
+                buffer = io.BytesIO(f.read())
+            df = _read_text_table(buffer)
         else:
             raise ValueError(f"Formato de archivo no soportado: {file_path.suffix}")
     else:
@@ -266,6 +320,14 @@ def normalize_sabi_data(uploaded_file: Union[io.BytesIO, Path, str]) -> pd.DataF
 
     if df.empty:
         raise ValueError("El archivo está vacío")
+
+    # Eliminar filas completamente vacías (todas las celdas vacías o NaN)
+    df = df.dropna(how='all')
+    df = df[~df.apply(lambda row: row.astype(str).str.strip().eq('').all(), axis=1)]
+    df = df.reset_index(drop=True)
+
+    if df.empty:
+        raise ValueError("El archivo está vacío (solo contenía líneas en blanco)")
 
     # MANTENER NOMBRES ORIGINALES DE COLUMNAS (según requerimiento del usuario)
     # No normalizamos ni mapeamos columnas, trabajamos directamente con nombres originales

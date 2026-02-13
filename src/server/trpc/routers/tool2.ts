@@ -162,6 +162,24 @@ export const tool2Router = createTRPCRouter({
       );
     }),
 
+  enrichColumn: baseProcedure
+    .input(
+      z.object({
+        projectId: z.string(),
+        columnName: z.string(),
+        rowUids: z.array(z.string()).optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      return fastApiClient.post(
+        `/api/tool2/projects/${input.projectId}/enrich`,
+        {
+          columnName: input.columnName,
+          rowUids: input.rowUids,
+        }
+      );
+    }),
+
   createColumn: baseProcedure
     .input(
       z.object({
@@ -172,6 +190,8 @@ export const tool2Router = createTRPCRouter({
           label: z.string().optional(),
           options: z.array(z.string()).optional(),
           prompt: z.string().optional(),
+          modelSelected: z.string().optional(),
+          smartContext: z.boolean().optional(),
         }),
       })
     )

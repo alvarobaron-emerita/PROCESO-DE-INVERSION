@@ -23,15 +23,19 @@ import {
   FileText,
   LucideIcon,
 } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { DataGrid } from "./DataGrid";
 import { DiscoveryEngine, DiscoverySettings } from "./DiscoveryEngine";
 import { ToolType } from "./ToolSwitcher";
 import { NewViewDialog } from "./DataGrid/NewViewDialog";
+import { AddColumnDialog } from "./DataGrid/AddColumnDialog";
 import { ViewInfo } from "./DataGrid/types";
 import { FileUpload } from "./FileUpload";
+import { Dialog, DialogContent } from "./ui/dialog";
 import { cn } from "~/lib/utils";
 import { Project } from "./AppSidebar";
 import { useApi, useQuery, useMutation } from "~/trpc/react";
+import { useToast } from "~/hooks/use-toast";
 
 // Icon mapping for dynamic icon rendering
 const iconComponents: Record<string, LucideIcon> = {
@@ -74,8 +78,12 @@ export function MainContent({
   onClearRequestDiscoveryConfig,
 }: MainContentProps) {
   const api = useApi();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
   const [activeViewId, setActiveViewId] = useState<string | null>(null);
   const [newViewDialogOpen, setNewViewDialogOpen] = useState(false);
+  const [addColumnDialogOpen, setAddColumnDialogOpen] = useState(false);
+  const [addFileDialogOpen, setAddFileDialogOpen] = useState(false);
 
   // Obtener vistas del proyecto activo (API oficial tRPC v11)
   const { data: viewsData, refetch: refetchViews } = useQuery(
@@ -86,7 +94,7 @@ export function MainContent({
   );
 
   // Obtener columnas disponibles del proyecto
-  const { data: columnsData } = useQuery(
+  const { data: columnsData, refetch: refetchColumns } = useQuery(
     api.tool2.listColumns.queryOptions(
       { projectId: activeProject?.id || "" },
       { enabled: !!activeProject && activeTool === "search" }
@@ -119,6 +127,16 @@ export function MainContent({
 
   // Verificar si el proyecto está vacío (no hay vistas o todas tienen 0 filas)
   const isProjectEmpty = views.length === 0 || views.every((v) => (v.rowCount || 0) === 0);
+
+  const getViewDisplayName = (view: ViewInfo) => {
+    if (view.type !== "system") return view.name;
+    const trimmed = view.name.trim();
+    const parts = trimmed.split(" ");
+    if (parts.length > 1 && parts[0].length <= 2) {
+      return parts.slice(1).join(" ");
+    }
+    return trimmed;
+  };
 
   const createViewMutation = useMutation(
     api.tool2.createView.mutationOptions({
@@ -175,6 +193,45 @@ export function MainContent({
   const handleCopyRows = (rowUids: string[], targetViewId: string) => {
     // DataGrid maneja la mutación internamente, solo refrescamos vistas
     refetchViews();
+  };
+
+  const createColumnMutation = useMutation(
+    api.tool2.createColumn.mutationOptions({
+      onSuccess: (_data, variables) => {
+        refetchColumns();
+        refetchViews();
+        queryClient.invalidateQueries({
+          predicate: (query) =>
+            String(query.queryKey).includes("getViewData"),
+        });
+        toast({
+          title: "Columna añadida",
+          description: `La columna "${variables.name}" se ha creado correctamente.`,
+        });
+      },
+    })
+  );
+
+  const handleAddColumn = (config: {
+    name: string;
+    type: "text" | "single_select" | "ai_score";
+    options?: string[];
+    prompt?: string;
+    modelSelected?: string;
+    smartContext?: boolean;
+  }) => {
+    if (!activeProject) return;
+    createColumnMutation.mutate({
+      projectId: activeProject.id,
+      name: config.name,
+      definition: {
+        type: config.type,
+        options: config.options,
+        prompt: config.prompt,
+        modelSelected: config.modelSelected,
+        smartContext: config.smartContext,
+      },
+    });
   };
 
   // Get breadcrumb text based on context
@@ -255,7 +312,7 @@ export function MainContent({
                       )}
                     >
                       {Icon && <Icon className="h-4 w-4" />}
-                      <span>{view.name}</span>
+                      <span>{getViewDisplayName(view)}</span>
                       {view.type === "custom" && view.rowCount > 0 && (
                         <span
                           className={cn(
@@ -316,6 +373,9 @@ export function MainContent({
                 views={views}
                 onMoveRows={handleMoveRows}
                 onCopyRows={handleCopyRows}
+                onOpenAddColumn={() => setAddColumnDialogOpen(true)}
+                onOpenAddFile={() => setAddFileDialogOpen(true)}
+                customColumnDefs={columnsData?.customColumns ?? {}}
               />
             ) : null
           ) : (
@@ -350,6 +410,30 @@ export function MainContent({
           onCreateView={handleCreateView}
           availableColumns={availableColumns}
         />
+      )}
+      {/* Add Column Dialog */}
+      {activeProject && (
+        <AddColumnDialog
+          open={addColumnDialogOpen}
+          onOpenChange={setAddColumnDialogOpen}
+          onAddColumn={handleAddColumn}
+          isPending={createColumnMutation.isPending}
+        />
+      )}
+      {/* Add File Dialog (append mode) */}
+      {activeProject && (
+        <Dialog open={addFileDialogOpen} onOpenChange={setAddFileDialogOpen}>
+          <DialogContent className="max-w-2xl">
+            <FileUpload
+              projectId={activeProject.id}
+              appendMode
+              onUploadSuccess={() => {
+                refetchViews();
+                setAddFileDialogOpen(false);
+              }}
+            />
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );

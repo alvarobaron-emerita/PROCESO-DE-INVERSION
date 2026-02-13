@@ -1,0 +1,41 @@
+{
+  "lists": [
+    {
+      "id": "inbox",
+      "name": "📥 Bandeja de Entrada"
+    },
+    {
+      "id": "shortlist",
+      "name": "⭐ Shortlist"
+    },
+    {
+      "id": "discarded",
+      "name": "🗑 Descartados"
+    }
+  ],
+  "custom_views": [],
+  "custom_columns_definitions": {
+    "Hola": {
+      "type": "single_select",
+      "label": null,
+      "options": [
+        "Hola"
+      ],
+      "prompt": null
+    },
+    "Texto Libre": {
+      "type": "text",
+      "label": null,
+      "options": null,
+      "prompt": null
+    },
+    "Relevo Generacional": {
+      "type": "ai_score",
+      "label": null,
+      "options": null,
+      "prompt": "Investiga y describe la situación del relevo generacional en la empresa. ¿Cuál es la edad estimada de los dueños actuales? ¿Están activamente involucrados en la gestión diaria? ¿Existe un plan de sucesión formal o informal? ¿Cuáles parecen ser las principales motivaciones de los dueños para una posible venta (ej. jubilación, falta de sucesión, búsqueda de capital para crecimiento, etc.)? Evalúa cómo esta situación se alinea con el interés de Emerita en dueños en edad de jubilación sin un plan de sucesión claro.",
+      "modelSelected": "long_context",
+      "smartContext": true
+    }
+  }
+}

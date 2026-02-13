@@ -1,0 +1,29 @@
+{
+  "lists": [
+    {
+      "id": "inbox",
+      "name": "📥 Bandeja de Entrada"
+    },
+    {
+      "id": "shortlist",
+      "name": "⭐ Shortlist"
+    },
+    {
+      "id": "discarded",
+      "name": "🗑 Descartados"
+    }
+  ],
+  "custom_views": [],
+  "custom_columns_definitions": {
+    "Test": {
+      "type": "ai_score",
+      "label": null,
+      "options": null,
+      "config": {
+        "user_prompt": "Analiza el relevo generacional",
+        "model_selected": "long_context",
+        "smart_context": true
+      }
+    }
+  }
+}
