@@ -68,7 +68,7 @@
     "tsx": "^4.19.4",
     "vinxi": "0.5.3",
     "vite": "^6",
-    "vite-plugin-node-polyfills": "^0.23.0",
+    "vite-plugin-node-polyfills": "^0.25.0",
     "zod": "^3.25.0"
   },
   "devDependencies": {
