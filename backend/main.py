@@ -20,10 +20,19 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Configurar CORS
+# Configurar CORS - localhost + Vercel (producción y previews)
+_app_origins = [
+    "http://localhost:3000",
+    "http://localhost:5173",
+    "https://proceso-de-inversion.vercel.app",
+]
+# Coincide con previews: proceso-de-inversion-xxx-alvaros-projects-xxx.vercel.app
+_app_origin_regex = r"^https://proceso-de-inversion(-[a-zA-Z0-9-]+)*\.vercel\.app$"
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:5173"],  # Añadir los puertos que uses
+    allow_origins=_app_origins,
+    allow_origin_regex=_app_origin_regex,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
