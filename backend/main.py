@@ -26,8 +26,8 @@ _app_origins = [
     "http://localhost:5173",
     "https://proceso-de-inversion.vercel.app",
 ]
-# Coincide con previews: proceso-de-inversion-xxx-alvaros-projects-xxx.vercel.app
-_app_origin_regex = r"^https://proceso-de-inversion(-[a-zA-Z0-9-]+)*\.vercel\.app$"
+# Cualquier subdominio *.vercel.app (previews, producción, etc.)
+_app_origin_regex = r"^https://[\w-]+\.vercel\.app$"
 
 app.add_middleware(
     CORSMiddleware,
