@@ -289,6 +289,25 @@ def delete_project(project_id: str) -> None:
     shutil.rmtree(project_dir)
 
 
+def wipe_all_projects() -> int:
+    """
+    Elimina todos los proyectos y sus datos.
+    Útil para dejar la instancia limpia (p. ej. en Render).
+
+    Returns:
+        Número de proyectos eliminados
+    """
+    import shutil
+    count = 0
+    if not PROCESSED_DATA_DIR.exists():
+        return 0
+    for item in list(PROCESSED_DATA_DIR.iterdir()):
+        if item.is_dir() and (item / "schema_config.json").exists():
+            shutil.rmtree(item)
+            count += 1
+    return count
+
+
 def add_custom_column(
     project_id: str,
     col_name: str,

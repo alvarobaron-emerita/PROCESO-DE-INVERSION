@@ -173,6 +173,21 @@ async def create_project(project: ProjectCreate):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.delete("/projects")
+async def wipe_all_projects(confirm: str = Query(..., description="Escriba 'wipe-all' para confirmar")):
+    """Elimina TODOS los proyectos y sus datos. Deja Search OS limpio."""
+    if confirm != "wipe-all":
+        raise HTTPException(
+            status_code=400,
+            detail="Para borrar todos los proyectos debe enviar ?confirm=wipe-all",
+        )
+    try:
+        count = data_manager.wipe_all_projects()
+        return {"message": f"Se eliminaron {count} proyectos. Search OS está limpio."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.delete("/projects/{project_id}")
 async def delete_project(project_id: str):
     """Elimina un proyecto"""
