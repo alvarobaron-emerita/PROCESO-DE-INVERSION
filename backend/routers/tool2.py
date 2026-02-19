@@ -5,6 +5,7 @@ Endpoints para gestión de proyectos, vistas, datos y columnas
 from fastapi import APIRouter, HTTPException, UploadFile, File, Query
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
+import asyncio
 import sys
 import math
 import json
@@ -13,6 +14,9 @@ from pathlib import Path
 import pandas as pd
 import numpy as np
 import io
+
+# Límite de tamaño para upload (Render free tier tiene timeout ~30s; archivos muy grandes fallan)
+MAX_UPLOAD_BYTES = 12 * 1024 * 1024  # 12 MB
 
 
 def _clean_for_json(obj: Any) -> Any:
@@ -215,6 +219,20 @@ async def delete_project(project_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+def _process_upload_sync(
+    contents: bytes, filename: str, project_id: str, append: bool
+) -> tuple[int, int]:
+    """Procesa el archivo en un hilo (CPU-bound). Devuelve (row_count, column_count)."""
+    file_io = io.BytesIO(contents)
+    file_io.name = filename
+    df_normalized = normalize_sabi_data(file_io)
+    if append:
+        data_manager.append_master_data(project_id, df_normalized)
+    else:
+        data_manager.save_master_data(project_id, df_normalized)
+    return len(df_normalized), len(df_normalized.columns)
+
+
 @router.post("/projects/{project_id}/upload")
 async def upload_file(
     project_id: str,
@@ -223,29 +241,29 @@ async def upload_file(
 ):
     """Sube un archivo Excel/CSV/TXT y lo procesa para el proyecto"""
     try:
-        # Verificar que el proyecto existe
         if not data_manager.project_exists(project_id):
             raise HTTPException(status_code=404, detail="Proyecto no encontrado")
 
-        # Leer el archivo
         contents = await file.read()
-        file_io = io.BytesIO(contents)
-        file_io.name = file.filename  # Necesario para normalize_sabi_data
+        if len(contents) > MAX_UPLOAD_BYTES:
+            raise HTTPException(
+                status_code=413,
+                detail=f"Archivo demasiado grande (máx. {MAX_UPLOAD_BYTES // (1024*1024)} MB). Reduce el Excel o exporta a CSV con menos columnas.",
+            )
 
-        # Normalizar datos SABI
-        df_normalized = normalize_sabi_data(file_io)
-
-        if append:
-            data_manager.append_master_data(project_id, df_normalized)
-        else:
-            data_manager.save_master_data(project_id, df_normalized)
+        # Ejecutar normalización y guardado en hilo para no bloquear el event loop
+        row_count, column_count = await asyncio.to_thread(
+            _process_upload_sync, contents, file.filename or "file", project_id, append
+        )
         _clear_project_query_cache(project_id)
 
         return {
             "message": "Archivo cargado correctamente" + (" (añadido)" if append else ""),
-            "rowCount": len(df_normalized),
-            "columnCount": len(df_normalized.columns)
+            "rowCount": row_count,
+            "columnCount": column_count,
         }
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
