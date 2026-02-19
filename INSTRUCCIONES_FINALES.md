@@ -73,21 +73,19 @@ El frontend estará disponible en `http://localhost:3000` (o el puerto que indiq
 
 ### Tool 2 - Data Viewer (Search OS)
 
-1. Abre `http://localhost:3000` en tu navegador
-2. En el sidebar izquierdo, verás "Search OS" y "Discovery Engine"
-3. Selecciona "Search OS" (Tool 2)
-4. Haz clic en "Nuevo Proyecto" para crear un proyecto
-5. Una vez creado, verás las vistas por defecto:
-   - 📥 Inbox
-   - ⭐ Shortlist
-   - 🗑️ Discarded
-6. Haz clic en el botón "Nueva Vista" para crear una vista personalizada
-7. Selecciona un icono, nombre y columnas visibles
-8. Si tienes datos en el proyecto, aparecerán en la tabla
+Search OS (Data Viewer) sigue el plan original y corre como **app Streamlit** (subida de Excel/CSV sin límite de timeout, AgGrid, columnas IA).
 
-**Para añadir datos:**
-- Puedes usar la aplicación Streamlit original (`search-os/src/tool_2_dataviewer/app.py`) para subir CSV/Excel
-- O crear proyectos y datos desde la nueva UI (funcionalidad pendiente de implementar)
+1. Abre `http://localhost:3000` en tu navegador
+2. En el sidebar, selecciona "Search OS" o haz clic en "Abrir Search OS (Data Viewer)"
+3. En la pantalla principal verás el botón **"Abrir Data Viewer (Streamlit)"** — ábrelo en una nueva pestaña
+4. Para usar Search OS en local, ejecuta en otra terminal desde la carpeta `search-os`:
+   ```bash
+   cd search-os
+   pip install -r requirements.txt
+   streamlit run src/main.py
+   ```
+   Se abrirá en `http://localhost:8501`. Desde ahí creas proyectos, subes CSV/Excel y usas el grid con columnas IA.
+5. Opcional: en el frontend puedes configurar `VITE_SEARCH_OS_APP_URL` (por ejemplo en `.env`) si la app Streamlit está en otra URL (producción).
 
 ### Tool 1 - Discovery Engine
 

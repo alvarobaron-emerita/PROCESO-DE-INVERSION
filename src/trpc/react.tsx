@@ -24,8 +24,7 @@ function getBaseUrl() {
 
 /**
  * Hook que devuelve el proxy tRPC (API oficial v11).
- * Para queries: useQuery(api.tool2.listProjects.queryOptions(input, opts))
- * Para mutations: useMutation(api.tool2.createProject.mutationOptions(opts))
+ * Search OS (Tool 2) se usa vía la app Streamlit; el API expone tool1 (Discovery).
  */
 export function useApi() {
   return useTRPC();

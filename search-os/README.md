@@ -80,6 +80,8 @@ streamlit run src/main.py
 
 La aplicación se abrirá en `http://localhost:8501`
 
+**Integración con el frontend React:** Si usas la app React (Vercel/local), el enlace "Search OS" abre esta app Streamlit. Por defecto apunta a `http://localhost:8501`. Para producción, configura en el frontend la variable `VITE_SEARCH_OS_APP_URL` con la URL donde tengas desplegada esta app (por ejemplo Streamlit Community Cloud o Railway).
+
 ## 🛠️ Herramientas
 
 ### Tool 1: Discovery Engine

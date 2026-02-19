@@ -21,3 +21,20 @@ export function getFastApiBaseUrl(): string {
 }
 
 export const FASTAPI_BASE_URL = getFastApiBaseUrl();
+
+const DEFAULT_SEARCH_OS_APP_URL = "http://localhost:8501";
+
+/**
+ * URL de la aplicación Search OS (Data Viewer) - Streamlit.
+ * Usar en desarrollo: streamlit run src/main.py desde la carpeta search-os.
+ */
+export function getSearchOsAppUrl(): string {
+  if (typeof window !== "undefined") {
+    const envUrl =
+      typeof import.meta !== "undefined" &&
+      (import.meta as { env?: Record<string, string> }).env?.VITE_SEARCH_OS_APP_URL;
+    if (envUrl && envUrl.trim()) return envUrl.trim();
+    return DEFAULT_SEARCH_OS_APP_URL;
+  }
+  return process.env.VITE_SEARCH_OS_APP_URL || DEFAULT_SEARCH_OS_APP_URL;
+}

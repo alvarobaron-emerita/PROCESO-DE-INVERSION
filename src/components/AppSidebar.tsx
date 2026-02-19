@@ -5,7 +5,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
 import { ProjectSelector } from "./ProjectSelector";
 import { ToolSwitcher } from "./ToolSwitcher";
 import type { ToolType } from "./ToolSwitcher";
-import { useApi, useQuery } from "~/trpc/react";
+import { useApi } from "~/trpc/react";
 import {
   getAnalyses,
   DISCOVERY_ANALYSES_CHANGED,
@@ -53,20 +53,8 @@ export function AppSidebar({
     return () => window.removeEventListener(DISCOVERY_ANALYSES_CHANGED, handler);
   }, []);
 
-  // Obtener proyectos desde el backend (API oficial tRPC v11)
-  const { data: projectsData, refetch: refetchProjects } = useQuery(
-    api.tool2.listProjects.queryOptions(undefined, {
-      enabled: activeTool === "search",
-    })
-  );
-
-  // Convertir proyectos del backend al formato esperado
-  const searchProjects: Project[] =
-    projectsData?.map((p) => ({
-      id: p.id,
-      name: p.name,
-      tool: "search" as ToolType,
-    })) || [];
+  // Search OS (Tool 2) se usa vía la app Streamlit; no hay lista de proyectos en React
+  const searchProjects: Project[] = [];
 
   // Análisis guardados de Discovery (localStorage), convertidos a formato Project
   const discoveryProjects: Project[] = useMemo(() => {
@@ -91,7 +79,6 @@ export function AppSidebar({
 
   const handleCreateProject = (newProject: Project) => {
     onProjectChange(newProject);
-    refetchProjects();
   };
 
   return (
