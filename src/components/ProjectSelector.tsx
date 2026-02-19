@@ -4,7 +4,6 @@ import {
   ChevronDown,
   ChevronRight,
   Plus,
-  ExternalLink,
 } from "lucide-react";
 import { cn } from "~/lib/utils";
 import {
@@ -12,7 +11,18 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "~/components/ui/collapsible";
-import { getSearchOsAppUrl } from "~/lib/api-config";
+import { Button } from "~/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "~/components/ui/dialog";
+import { Input } from "~/components/ui/input";
+import { Label } from "~/components/ui/label";
+import { useApi, useMutation } from "~/trpc/react";
 import type { Project } from "./AppSidebar";
 import type { ToolType } from "./ToolSwitcher";
 
@@ -36,41 +46,27 @@ export function ProjectSelector({
   collapsed = false,
   activeTool,
 }: ProjectSelectorProps) {
+  const api = useApi();
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(
     new Set(activeProject ? [activeProject.id] : [])
   );
+  const [newProjectDialogOpen, setNewProjectDialogOpen] = useState(false);
+  const [newProjectName, setNewProjectName] = useState("");
 
-  // Search OS (Tool 2): solo enlace a la app Streamlit
-  if (activeTool === "search") {
-    const searchOsUrl = getSearchOsAppUrl();
-    if (collapsed) {
-      return (
-        <a
-          href={searchOsUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center justify-center w-full p-2 rounded-md text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
-          title="Abrir Search OS (Data Viewer)"
-        >
-          <ExternalLink className="h-4 w-4" />
-        </a>
-      );
-    }
-    return (
-      <a
-        href={searchOsUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        className={cn(
-          "flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-sm transition-colors",
-          "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-        )}
-      >
-        <ExternalLink className="h-4 w-4 shrink-0" />
-        <span>Abrir Search OS (Data Viewer)</span>
-      </a>
-    );
-  }
+  const createProjectMutation = useMutation(
+    api.tool2.createProject.mutationOptions({
+      onSuccess: (newProject) => {
+        const project: Project = {
+          id: newProject.id,
+          name: newProject.name,
+          tool: activeTool,
+        };
+        onCreateProject(project);
+        setNewProjectDialogOpen(false);
+        setNewProjectName("");
+      },
+    })
+  );
 
   useEffect(() => {
     setExpandedProjects(
@@ -99,9 +95,21 @@ export function ProjectSelector({
     setExpandedProjects((prev) => new Set([...prev, project.id]));
   };
 
-  const handleCreateClick = () => {
-    if (onRequestNewAnalysis) onRequestNewAnalysis();
+  const handleCreateProject = () => {
+    if (!newProjectName.trim()) return;
+    createProjectMutation.mutate({ name: newProjectName.trim() });
   };
+
+  const handleCreateClick = () => {
+    if (activeTool === "discovery" && onRequestNewAnalysis) {
+      onRequestNewAnalysis();
+      return;
+    }
+    setNewProjectDialogOpen(true);
+  };
+
+  const createButtonLabel =
+    activeTool === "discovery" ? "Nuevo análisis" : "Nuevo proyecto";
 
   if (collapsed) {
     return (
@@ -124,7 +132,7 @@ export function ProjectSelector({
         <button
           onClick={handleCreateClick}
           className="flex items-center justify-center w-full p-2 rounded-md text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
-          title="Nuevo análisis"
+          title={createButtonLabel}
         >
           <Plus className="h-4 w-4" />
         </button>
@@ -179,9 +187,54 @@ export function ProjectSelector({
           )}
         >
           <Plus className="h-4 w-4 shrink-0" />
-          <span>Nuevo análisis</span>
+          <span>{createButtonLabel}</span>
         </button>
       </div>
+
+      {/* Dialog para crear nuevo proyecto */}
+      <Dialog open={newProjectDialogOpen} onOpenChange={setNewProjectDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Crear nuevo proyecto</DialogTitle>
+            <DialogDescription>
+              Crea un nuevo proyecto para gestionar tus datos.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="project-name">Nombre del proyecto</Label>
+              <Input
+                id="project-name"
+                value={newProjectName}
+                onChange={(e) => setNewProjectName(e.target.value)}
+                placeholder="Ej: Vitivinícola 2025"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    handleCreateProject();
+                  }
+                }}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setNewProjectDialogOpen(false);
+                setNewProjectName("");
+              }}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleCreateProject}
+              disabled={!newProjectName.trim() || createProjectMutation.isPending}
+            >
+              {createProjectMutation.isPending ? "Creando..." : "Crear"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

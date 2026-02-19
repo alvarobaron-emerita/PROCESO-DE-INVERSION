@@ -15,8 +15,8 @@ import pandas as pd
 import numpy as np
 import io
 
-# Límite de tamaño para upload (Render free tier tiene timeout ~30s; archivos muy grandes fallan)
-MAX_UPLOAD_BYTES = 12 * 1024 * 1024  # 12 MB
+# Límite de tamaño para upload (ajustar según necesidad; en Render free tier requests > ~30s pueden cortarse)
+MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB
 
 
 def _clean_for_json(obj: Any) -> Any:
@@ -248,7 +248,7 @@ async def upload_file(
         if len(contents) > MAX_UPLOAD_BYTES:
             raise HTTPException(
                 status_code=413,
-                detail=f"Archivo demasiado grande (máx. {MAX_UPLOAD_BYTES // (1024*1024)} MB). Reduce el Excel o exporta a CSV con menos columnas.",
+                detail=f"Archivo demasiado grande. Máximo {MAX_UPLOAD_BYTES // (1024*1024)} MB.",
             )
 
         # Ejecutar normalización y guardado en hilo para no bloquear el event loop

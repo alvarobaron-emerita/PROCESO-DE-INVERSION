@@ -24,7 +24,7 @@ function getBaseUrl() {
 
 /**
  * Hook que devuelve el proxy tRPC (API oficial v11).
- * Search OS (Tool 2) se usa vía la app Streamlit; el API expone tool1 (Discovery).
+ * tool1: Discovery Engine; tool2: Search OS (Data Viewer).
  */
 export function useApi() {
   return useTRPC();

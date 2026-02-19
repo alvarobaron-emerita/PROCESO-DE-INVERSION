@@ -12,6 +12,7 @@ yarn.lock
 
 /build/
 /api/
+backend/venv/
 /server/build
 /public/build
 .vinxi
