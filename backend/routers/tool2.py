@@ -173,17 +173,35 @@ async def create_project(project: ProjectCreate):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.delete("/projects")
-async def wipe_all_projects(confirm: str = Query(..., description="Escriba 'wipe-all' para confirmar")):
-    """Elimina TODOS los proyectos y sus datos. Deja Search OS limpio."""
+def _do_wipe_all(confirm: str) -> dict:
+    """Lógica compartida para wipe (DELETE o POST)."""
     if confirm != "wipe-all":
         raise HTTPException(
             status_code=400,
             detail="Para borrar todos los proyectos debe enviar ?confirm=wipe-all",
         )
+    count = data_manager.wipe_all_projects()
+    return {"message": f"Se eliminaron {count} proyectos. Search OS está limpio."}
+
+
+@router.delete("/projects")
+async def wipe_all_projects_delete(confirm: str = Query(..., description="Escriba 'wipe-all' para confirmar")):
+    """Elimina TODOS los proyectos (método DELETE)."""
     try:
-        count = data_manager.wipe_all_projects()
-        return {"message": f"Se eliminaron {count} proyectos. Search OS está limpio."}
+        return _do_wipe_all(confirm)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/projects/wipe")
+async def wipe_all_projects_post(confirm: str = Query(..., description="Escriba 'wipe-all' para confirmar")):
+    """Elimina TODOS los proyectos (método POST, por si DELETE no está permitido)."""
+    try:
+        return _do_wipe_all(confirm)
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
