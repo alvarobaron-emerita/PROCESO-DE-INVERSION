@@ -31,7 +31,6 @@ sys.path.insert(0, str(search_os_path / "src"))
 
 from shared import data_manager
 from tool_2_dataviewer.csv_loader import normalize_sabi_data
-from tool_2_dataviewer import ai_columns
 
 router = APIRouter()
 
@@ -596,6 +595,13 @@ async def update_row(project_id: str, row_uid: str, updates: Dict[str, Any]):
 @router.post("/projects/{project_id}/enrich")
 async def enrich_column(project_id: str, body: EnrichRequest):
     """Ejecuta enriquecimiento IA sobre filas seleccionadas"""
+    try:
+        from tool_2_dataviewer import ai_columns
+    except ModuleNotFoundError as e:
+        raise HTTPException(
+            status_code=503,
+            detail="Enriquecimiento IA no disponible: faltan dependencias (langchain-groq, etc.). Instálalas en el backend para usar esta función.",
+        ) from e
     try:
         df_master = data_manager.load_master_data(project_id)
         row_indices = None
